@@ -105,6 +105,12 @@ module PollSync
       JSON.parse(response.body)
     end
 
+    def delete_poll(slug)
+      response = perform(:delete, Routes.poll(slug))
+      return if response.is_a?(Net::HTTPSuccess) || response.code == "404"
+      raise RequestFailed, "DELETE #{Routes.poll(slug)} returned #{response.code}: #{response.body}"
+    end
+
     def apply(change)
       response = perform(change.http_method, change.path, change.body)
       unless response.is_a?(Net::HTTPSuccess)
@@ -118,7 +124,7 @@ module PollSync
     def perform(http_method, path, body = nil)
       uri = @base_uri.dup
       uri.path = "#{@base_uri.path.chomp("/")}#{path}"
-      request_class = {get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch}.fetch(http_method)
+      request_class = {get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch, delete: Net::HTTP::Delete}.fetch(http_method)
       request = request_class.new(uri)
       request["Accept"] = "application/json"
       request["Authorization"] = "Bearer #{@token}"
@@ -130,6 +136,17 @@ module PollSync
         http.request(request)
       end
     end
+  end
+
+  # Deletes the poll with all its votes and joins, then creates it fresh from deck/poll.json.
+  def self.reset(definition:, client:, output: $stdout)
+    slug = definition.fetch("slug")
+    client.delete_poll(slug)
+    output.puts "Deleted the #{slug} poll and its votes."
+    change = Planner.new(definition: definition, existing_poll: nil).change
+    change.summary.each { |line| output.puts "- #{line}" }
+    client.apply(change)
+    change
   end
 
   def self.run(definition:, client:, apply:, output: $stdout)

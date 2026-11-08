@@ -17,6 +17,10 @@ class PollSyncTest < Minitest::Test
       @applied << change
       {}
     end
+
+    def delete_poll(slug)
+      @applied << PollSync::Change.new(http_method: :delete, path: "/#{slug}")
+    end
   end
 
   def definition
@@ -112,5 +116,13 @@ class PollSyncTest < Minitest::Test
     PollSync.run(definition: definition, client: FakeClient.new(poll), apply: false, output: output)
 
     assert_includes output.string, "4 people have voted"
+  end
+
+  def test_reset_deletes_then_creates_the_poll
+    client = FakeClient.new(matching_poll)
+
+    PollSync.reset(definition: definition, client: client, output: StringIO.new)
+
+    assert_equal [[:delete, "/sfruby"], [:post, "/"]], client.applied.map { |change| [change.http_method, change.path] }
   end
 end

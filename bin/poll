@@ -1,0 +1,67 @@
+#!/usr/bin/env ruby
+# Rebuilds the poll slides from deck/poll.json, then makes the live poll match it.
+#
+#   bin/poll            # rebuild slides, show what would change on the server
+#   bin/poll --apply    # rebuild slides, update the server
+#   bin/poll --reset    # rebuild slides, delete the poll (and every vote) and create it fresh
+#   bin/poll --slides   # rebuild slides only
+#
+# The API token comes from POLLS_API_TOKEN, or else from 1Password at POLLS_API_TOKEN_REF
+# (default op://Personal/GameStats.ai/polls api token). POLLS_API_URL defaults to
+# https://polls.gamestats.ai
+require "open3"
+require_relative "../lib/poll_slides"
+require_relative "../lib/poll_sync"
+
+ROOT = File.expand_path("..", __dir__)
+MODES = %w[--apply --reset --slides].freeze
+
+mode = ARGV.shift
+if ARGV.any? || (mode && !MODES.include?(mode))
+  warn "Usage: bin/poll [--apply | --reset | --slides]"
+  exit 1
+end
+
+definition = JSON.parse(File.read(File.join(ROOT, "deck/poll.json")))
+begin
+  slide_ids = PollSlides.build(
+    definition: definition,
+    slides_dir: File.join(ROOT, "deck/project/slides"),
+    deck_path: File.join(ROOT, "deck/project/deck.json")
+  )
+rescue ArgumentError => error
+  warn "deck/poll.json: #{error.message}"
+  exit 1
+end
+puts "Rebuilt #{slide_ids.size} poll slides: #{slide_ids.join(", ")}"
+exit if mode == "--slides"
+
+def api_token
+  token = ENV["POLLS_API_TOKEN"].to_s
+  return token unless token.empty?
+
+  reference = ENV.fetch("POLLS_API_TOKEN_REF", "op://Personal/GameStats.ai/polls api token")
+  token, status = Open3.capture2("op", "read", reference)
+  status.success? ? token.strip : nil
+rescue Errno::ENOENT
+  nil
+end
+
+token = api_token
+if token.to_s.empty?
+  warn "Skipped the server sync: set POLLS_API_TOKEN or sign in to 1Password (op)."
+  exit 1
+end
+
+client = PollSync::Client.new(base_url: ENV.fetch("POLLS_API_URL", "https://polls.gamestats.ai"), token: token)
+begin
+  if mode == "--reset"
+    PollSync.reset(definition: definition, client: client)
+  else
+    PollSync.run(definition: definition, client: client, apply: mode == "--apply")
+  end
+rescue PollSync::Client::RequestFailed, SocketError, Errno::ECONNREFUSED, Net::OpenTimeout => error
+  warn "Sync stopped: #{error.message}"
+  warn "If people have voted, question changes are refused. bin/poll --reset clears the votes and recreates the poll." if error.message.include?("422")
+  exit 1
+end

@@ -5,37 +5,57 @@
     {
       "prompt": "How many engineers work at your company?",
       "allows_multiple": false,
-      "options": ["1–10", "11–100", "101–1,000", "1,001–10,000", "10,000+"]
+      "options": ["1–10", "11–100", "101–1,000", "1,001–10,000", "10,000+"],
+      "chart": "columns",
+      "notes": "About 2 minutes. Results fill in live as people vote, in order from smallest to largest company. Call out the shape: is this room mostly big companies, or founders preparing for scale? Then: say hi to your neighbors, what does your team build?"
     },
     {
       "prompt": "How much of your merged code did an agent write?",
       "allows_multiple": false,
-      "options": ["Under 10%", "10–25%", "25–50%", "50–75%", "Over 75%"]
+      "options": ["Under 10%", "10–25%", "25–50%", "50–75%", "Over 75%"],
+      "chart": "columns",
+      "notes": "About 2 minutes. Guesses are fine. Ask the room: how do you know? Most big teams don't actually measure this. Find someone at either extreme and ask for one sentence on how they got there."
     },
     {
       "prompt": "How locked down are AI tools at your company?",
       "allows_multiple": false,
-      "options": ["Anything goes", "Approved tools only", "Mostly blocked"]
+      "options": ["Anything goes", "Approved tools only", "Mostly blocked"],
+      "chart": "columns",
+      "notes": "About 2 minutes. This surfaces the big-business reality: procurement, security review, shadow AI. Ask: who made that call, and do people actually follow it? Founders tend to answer anything goes; point out that this is a decision they will eventually have to make."
     },
     {
       "prompt": "What’s your role?",
       "allows_multiple": false,
-      "options": ["Engineer", "Founder or leader", "Builder without the engineer title"]
+      "options": ["Engineer", "Founder or leader", "Builder without the engineer title"],
+      "chart": "cards",
+      "heading": "CHOOSE YOUR FIGHTER",
+      "cards": [
+        {"icon": "Code", "title": "ENGINEER", "text": "You write and review code for a living."},
+        {"icon": "Star", "title": "FOUNDER", "text": "You run the company or lead the team."},
+        {"icon": "Wrench", "title": "BUILDER", "text": "You ship with agents, without the engineer title."}
+      ],
+      "notes": "About 2 minutes. Each card shows how many people picked that role and their share of the room, live. Call out the mix: it tells everyone who they are talking to. Builders without the engineer title are especially welcome here; say so."
     },
     {
       "prompt": "Which coding agents do you use?",
       "allows_multiple": true,
-      "options": ["Claude Code", "Cursor", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "Windsurf", "Amp", "Devin", "Something else", "None yet"]
+      "options": ["Claude Code", "Cursor", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "Windsurf", "Amp", "Devin", "Something else", "None yet"],
+      "chart": "bars",
+      "notes": "About 2 minutes. People could pick more than one, so call out how many use several agents. Top 8 answers shown, ranked live."
     },
     {
       "prompt": "Which one do you use the most?",
       "allows_multiple": false,
-      "options": ["Claude Code", "Cursor", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "Windsurf", "Amp", "Devin", "Something else"]
+      "options": ["Claude Code", "Cursor", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "Windsurf", "Amp", "Devin", "Something else"],
+      "chart": "bars",
+      "notes": "About 1 to 2 minutes. Compare with the previous slide: which tools do people try versus actually live in? Ask someone who picked a less common tool why."
     },
     {
       "prompt": "Where do your agents do their work?",
       "allows_multiple": true,
-      "options": ["In my editor", "In my terminal", "In the cloud, in the background", "In code review or CI", "Not using agents yet"]
+      "options": ["In my editor", "In my terminal", "In the cloud, in the background", "In code review or CI", "Not using agents yet"],
+      "chart": "bars",
+      "notes": "About 2 minutes. Editor and terminal use is common; background agents and agents in code review or CI are where big teams start to differ. A good bridge into the open mic."
     }
   ]
 }

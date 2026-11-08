@@ -24,14 +24,22 @@ The slides live in `deck/project/`: `deck.json` sets the order, sections and fon
 
 ## Live poll
 
-The poll's questions live in `deck/poll.json`, in the same order as the poll slides (`data-poll-question="N"` is the Nth question). To make the live poll match it:
+`deck/poll.json` is the single source for the poll: its questions drive both the poll slides and the live poll on Game Stats AI. After editing it, run:
 
 ```sh
-POLLS_API_TOKEN=... bin/sync-poll            # show what would change
-POLLS_API_TOKEN=... bin/sync-poll --apply    # make the changes
+bin/poll            # rebuild the poll slides, show what would change on the server
+bin/poll --apply    # rebuild the poll slides and update the server
+bin/poll --reset    # rebuild, then delete the poll (and every vote) and create it fresh
+bin/poll --slides   # rebuild the poll slides only
 ```
 
-`POLLS_API_URL` defaults to `https://polls.gamestats.ai`. The API takes the whole poll in one request: `POST /` creates it and `PATCH /:slug` replaces its title and questions, with the token sent as `Authorization: Bearer`. The script reads `GET /:slug/results.json` to show what would change. Resending an unchanged poll does nothing, and once anyone has voted the server refuses question changes (the title can still change). Run the tests with `ruby test/poll_sync_test.rb`.
+Each question gets one slide, `deck/project/slides/poll-N.html`, placed right after the GRAB YOUR PHONE slide, whose "Answer N quick questions" count is kept up to date. Those files are generated, so edit `poll.json` rather than the HTML. Besides `prompt`, `options` and `allows_multiple`, a question can set:
+
+- `chart`: `columns` (options in a fixed order, good for ranges), `bars` (ranked by votes, top 8) or `cards`. Without it, single-choice questions with up to 6 options get columns and the rest get bars.
+- `notes`: the speaker notes.
+- `heading` and `cards`: for `cards`, the slide title and one `{"icon", "title", "text"}` per option, in option order. Icons are the names in `present/icons.js`.
+
+The API token comes from `POLLS_API_TOKEN`, or else from 1Password at `POLLS_API_TOKEN_REF` (default `op://Personal/GameStats.ai/polls api token`). `POLLS_API_URL` defaults to `https://polls.gamestats.ai`. The API takes the whole poll in one request: `POST /` creates it, `PATCH /:slug` replaces its title and questions, and `DELETE /:slug` removes it. Resending an unchanged poll does nothing. Once anyone has voted, including test votes, the server refuses question changes; `bin/poll --reset` gets around that by starting over, so use it before the session to clear test votes too. Run the tests with `ruby test/poll_sync_test.rb` and `ruby test/poll_slides_test.rb`.
 
 Demo mode (`?demo` or the D key) generates fake votes for the questions in `deck/poll.json`.
 
