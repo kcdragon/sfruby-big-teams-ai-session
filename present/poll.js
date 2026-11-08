@@ -17,9 +17,12 @@ const DEMO_QUESTIONS = [
 function buildDemoSource() {
   const votes = new Map()
   let voterCount = 0
+  let joinedCount = 0
   return () => {
-    voterCount += 1 + Math.floor(Math.random() * 3)
+    joinedCount += 1 + Math.floor(Math.random() * 3)
+    voterCount = Math.min(joinedCount, voterCount + Math.floor(Math.random() * 3))
     return {
+      joined_count: joinedCount,
       voter_count: voterCount,
       questions: DEMO_QUESTIONS.map((question, questionIndex) => {
         const totalWeight = question.weights.reduce((sum, weight) => sum + weight, 0)
@@ -153,6 +156,10 @@ function renderOptionCount(element, question) {
 function render(stage, results) {
   const voterText = `${results.voter_count} ${results.voter_count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} VOTED`
   stage.querySelectorAll('[data-poll="voters"]').forEach((element) => { element.textContent = voterText })
+  if (Number.isInteger(results.joined_count)) {
+    const joinedText = `${results.joined_count} ${results.joined_count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} JOINED`
+    stage.querySelectorAll('[data-poll="joined"]').forEach((element) => { element.textContent = joinedText })
+  }
 
   stage.querySelectorAll('[data-poll="prompt"]').forEach((element) => {
     const question = questionFor(element, results.questions)

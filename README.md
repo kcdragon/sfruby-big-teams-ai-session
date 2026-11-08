@@ -26,10 +26,11 @@ The slides live in `deck/project/`: `deck.json` sets the order, sections and fon
 
 Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills the `data-poll` elements in the slides. `data-poll-question="N"` refers to the Nth question, so the poll's question order must match the slides. If the server can't be reached, it keeps showing the last results it got.
 
-The JSON it expects:
+The JSON it expects (`joined_count` is how many phones have opened the voting page; `voter_count` is how many have submitted answers):
 
 ```json
 {
+  "joined_count": 57,
   "voter_count": 42,
   "questions": [
     {"id": 1, "prompt": "Which coding agents do you use?",
