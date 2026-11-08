@@ -6,10 +6,7 @@
 #   bin/poll --reset    # rebuild slides, delete the poll (and every vote) and create it fresh
 #   bin/poll --slides   # rebuild slides only
 #
-# The API token comes from POLLS_API_TOKEN, or else from 1Password at POLLS_API_TOKEN_REF
-# (default op://Personal/GameStats.ai/polls api token). POLLS_API_URL defaults to
-# https://polls.gamestats.ai
-require "open3"
+# The API token comes from POLLS_API_TOKEN. POLLS_API_URL defaults to https://polls.gamestats.ai
 require_relative "../lib/poll_slides"
 require_relative "../lib/poll_sync"
 
@@ -36,20 +33,9 @@ end
 puts "Rebuilt #{slide_ids.size} poll slides: #{slide_ids.join(", ")}"
 exit if mode == "--slides"
 
-def api_token
-  token = ENV["POLLS_API_TOKEN"].to_s
-  return token unless token.empty?
-
-  reference = ENV.fetch("POLLS_API_TOKEN_REF", "op://Personal/GameStats.ai/polls api token")
-  token, status = Open3.capture2("op", "read", reference)
-  status.success? ? token.strip : nil
-rescue Errno::ENOENT
-  nil
-end
-
-token = api_token
-if token.to_s.empty?
-  warn "Skipped the server sync: set POLLS_API_TOKEN or sign in to 1Password (op)."
+token = ENV["POLLS_API_TOKEN"].to_s
+if token.empty?
+  warn "Skipped the server sync: set POLLS_API_TOKEN to the Game Stats AI polls API token."
   exit 1
 end
 

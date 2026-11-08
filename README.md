@@ -39,7 +39,7 @@ Each question gets one slide, `deck/project/slides/poll-N.html`, placed right af
 - `notes`: the speaker notes.
 - `heading` and `cards`: for `cards`, the slide title and one `{"icon", "title", "text"}` per option, in option order. Icons are the names in `present/icons.js`.
 
-The API token comes from `POLLS_API_TOKEN`, or else from 1Password at `POLLS_API_TOKEN_REF` (default `op://Personal/GameStats.ai/polls api token`). `POLLS_API_URL` defaults to `https://polls.gamestats.ai`. The API takes the whole poll in one request: `POST /` creates it, `PATCH /:slug` replaces its title and questions, and `DELETE /:slug` removes it. Resending an unchanged poll does nothing. Once anyone has voted, including test votes, the server refuses question changes; `bin/poll --reset` gets around that by starting over, so use it before the session to clear test votes too. Run the tests with `ruby test/poll_sync_test.rb` and `ruby test/poll_slides_test.rb`.
+The API token comes from the `POLLS_API_TOKEN` environment variable. `POLLS_API_URL` defaults to `https://polls.gamestats.ai`. The API takes the whole poll in one request: `POST /` creates it, `PATCH /:slug` replaces its title and questions, and `DELETE /:slug` removes it. Resending an unchanged poll does nothing. Once anyone has voted, including test votes, the server refuses question changes; `bin/poll --reset` gets around that by starting over, so use it before the session to clear test votes too. Run the tests with `ruby test/poll_sync_test.rb` and `ruby test/poll_slides_test.rb`.
 
 Demo mode (`?demo` or the D key) generates fake votes for the questions in `deck/poll.json`.
 
