@@ -24,6 +24,17 @@ The slides live in `deck/project/`: `deck.json` sets the order, sections and fon
 
 ## Live poll
 
+The poll's questions live in `deck/poll.json`, in the same order as the poll slides (`data-poll-question="N"` is the Nth question). To make the live poll match it:
+
+```sh
+POLLS_API_TOKEN=... bin/sync-poll            # show what would change
+POLLS_API_TOKEN=... bin/sync-poll --apply    # make the changes
+```
+
+`POLLS_API_URL` defaults to `https://polls.gamestats.ai`. The script matches questions and options by position, so rewording one updates it in place (keeping its votes) instead of deleting and recreating it. It expects Rails-style JSON routes, listed in `PollSync::Routes` in `lib/poll_sync.rb`: `GET/POST /polls`, `GET/PATCH /polls/:slug`, `POST /polls/:slug/questions`, `PATCH/DELETE /polls/:slug/questions/:id`, and the same for `/polls/:slug/questions/:question_id/options`. The token is sent as `Authorization: Bearer`. Run the tests with `ruby test/poll_sync_test.rb`.
+
+Demo mode (`?demo` or the D key) generates fake votes for the questions in `deck/poll.json`.
+
 Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills the `data-poll` elements in the slides. `data-poll-question="N"` refers to the Nth question, so the poll's question order must match the slides. If the server can't be reached, it keeps showing the last results it got.
 
 The JSON it expects (`joined_count` is how many phones have opened the voting page; `voter_count` is how many have submitted answers):

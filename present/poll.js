@@ -4,18 +4,9 @@ const COLUMN_MAX_HEIGHT = 220
 const COLORS = { navy: "#1B2C8F", ink: "#14182E", gold: "#F2C94C", ruby: "#E0473A", cloud: "#FBFBF8", track: "#0F1A5C" }
 const DISPLAY_FONT = "'Press Start 2P', monospace"
 
-const DEMO_QUESTIONS = [
-  { prompt: "How many engineers work at your company?", options: ["1–10", "11–100", "101–1,000", "1,001–10,000", "10,000+"], weights: [2, 4, 5, 3, 1] },
-  { prompt: "How much of your merged code did an agent write?", options: ["Under 10%", "10–25%", "25–50%", "50–75%", "Over 75%"], weights: [2, 3, 4, 3, 2] },
-  { prompt: "How locked down are AI tools at your company?", options: ["Anything goes", "Approved tools only", "Mostly blocked"], weights: [3, 5, 1] },
-  { prompt: "What’s your role?", options: ["Engineer", "Founder or leader", "Builder without the engineer title"], weights: [6, 3, 2] },
-  { prompt: "Which coding agents do you use?", options: ["Claude Code", "Cursor", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "Windsurf", "Amp", "Devin", "Something else", "None yet"], weights: [9, 7, 6, 4, 2, 2, 1, 1, 1, 1] },
-  { prompt: "Which one do you use the most?", options: ["Claude Code", "Cursor", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "Windsurf", "Amp", "Devin", "Something else"], weights: [8, 6, 4, 3, 1, 1, 1, 1, 1] },
-  { prompt: "Where do your agents do their work?", options: ["In my editor", "In my terminal", "In the cloud, in the background", "In code review or CI", "Not using agents yet"], weights: [6, 5, 3, 2, 1] },
-]
-
-function buildDemoSource() {
+function buildDemoSource(pollDefinition) {
   const votes = new Map()
+  const weights = new Map()
   let voterCount = 0
   let joinedCount = 0
   return () => {
@@ -24,19 +15,16 @@ function buildDemoSource() {
     return {
       joined_count: joinedCount,
       voter_count: voterCount,
-      questions: DEMO_QUESTIONS.map((question, questionIndex) => {
-        const totalWeight = question.weights.reduce((sum, weight) => sum + weight, 0)
-        return {
-          id: questionIndex + 1,
-          prompt: question.prompt,
-          options: question.options.map((label, optionIndex) => {
-            const key = `${questionIndex + 1}:${optionIndex + 1}`
-            const bump = Math.random() < (question.weights[optionIndex] / totalWeight) * 1.6 ? 1 : 0
-            votes.set(key, (votes.get(key) ?? 0) + bump)
-            return { id: key, label, position: optionIndex + 1, votes: votes.get(key) }
-          }),
-        }
-      }),
+      questions: pollDefinition.questions.map((question, questionIndex) => ({
+        id: questionIndex + 1,
+        prompt: question.prompt,
+        options: question.options.map((label, optionIndex) => {
+          const key = `${questionIndex + 1}:${optionIndex + 1}`
+          if (!weights.has(key)) weights.set(key, 0.15 + Math.random() * 0.6)
+          if (Math.random() < weights.get(key)) votes.set(key, (votes.get(key) ?? 0) + 1)
+          return { id: key, label, position: optionIndex + 1, votes: votes.get(key) ?? 0 }
+        }),
+      })),
     }
   }
 }
@@ -185,7 +173,8 @@ export async function startPoll({ stage, statusElement, params }) {
 
   const config = await fetch("config.json", { cache: "no-store" }).then((response) => response.json())
   const resultsUrl = resolveResultsUrl(config.pollResultsUrl, params)
-  const demoSource = buildDemoSource()
+  const pollDefinition = await fetch("../deck/poll.json", { cache: "no-store" }).then((response) => response.json())
+  const demoSource = buildDemoSource(pollDefinition)
   let demoMode = params.has("demo")
 
   const showStatus = (message) => {
