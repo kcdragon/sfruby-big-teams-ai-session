@@ -24,7 +24,7 @@ The slides live in `deck/project/`: `deck.json` sets the order, sections and fon
 
 ## Live poll
 
-Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills any `data-poll="voters"` and `data-poll="results"` elements in the slides. If the server can't be reached, it keeps showing the last results it got.
+Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills the `data-poll` elements in the slides (each `poll-q<N>` slide shows question N). If the server can't be reached, it keeps showing the last results it got.
 
 The JSON it expects:
 

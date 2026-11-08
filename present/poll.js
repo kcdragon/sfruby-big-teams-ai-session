@@ -1,5 +1,6 @@
 const CACHE_KEY = "big-teams-poll-results"
 const TOP_OPTIONS_PER_QUESTION = 5
+const WIDE_OPTIONS_PER_QUESTION = 8
 const COLORS = { navy: "#1B2C8F", ink: "#14182E", gold: "#F2C94C", ruby: "#E0473A", cloud: "#FBFBF8", track: "#0F1A5C" }
 const DISPLAY_FONT = "'Press Start 2P', monospace"
 
@@ -113,10 +114,63 @@ function renderResultsRegion(region, questions) {
   }
 }
 
+function buildWideOptionRow() {
+  const row = styled("div", "display:grid;grid-template-columns:480px 1fr 140px;align-items:center;gap:28px")
+  const label = styled("p", "font-size:38px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")
+  const track = styled("div", `height:36px;background:${COLORS.track};border:4px solid ${COLORS.ink}`)
+  const fill = styled("div", `height:100%;width:0%;background:${COLORS.gold};transition:width 700ms steps(14, end)`)
+  const count = styled("p", `font-family:${DISPLAY_FONT};font-size:30px;color:${COLORS.gold};text-align:right`)
+  track.append(fill)
+  row.append(label, track, count)
+  return { row, label, count, fill }
+}
+
+function renderSingleQuestionRegion(region, question) {
+  region.pollOptionRows ??= new Map()
+  if (!region.pollInitialized) {
+    region.replaceChildren()
+    region.pollInitialized = true
+  }
+  if (!question) return
+
+  const topOptions = [...question.options].sort((first, second) => second.votes - first.votes).slice(0, WIDE_OPTIONS_PER_QUESTION)
+  const topVotes = Math.max(1, ...topOptions.map((option) => option.votes))
+  const shownOptionIds = new Set()
+  topOptions.forEach((option, rank) => {
+    shownOptionIds.add(option.id)
+    let optionRow = region.pollOptionRows.get(option.id)
+    if (!optionRow) {
+      optionRow = buildWideOptionRow()
+      region.pollOptionRows.set(option.id, optionRow)
+    }
+    region.append(optionRow.row)
+    optionRow.label.textContent = option.label
+    optionRow.count.textContent = option.votes
+    optionRow.fill.style.width = `${(option.votes / topVotes) * 100}%`
+    optionRow.fill.style.background = rank === 0 && option.votes > 0 ? COLORS.ruby : COLORS.gold
+    optionRow.row.style.opacity = option.votes > 0 ? "1" : "0.55"
+  })
+  for (const [optionId, optionRow] of region.pollOptionRows) {
+    if (!shownOptionIds.has(optionId)) optionRow.row.remove()
+  }
+}
+
+function questionForElement(element, questions) {
+  const questionNumber = Number(element.dataset.pollQuestion)
+  return questionNumber ? questions[questionNumber - 1] : undefined
+}
+
 function render(stage, results) {
   const voterText = `${results.voter_count} ${results.voter_count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} VOTED`
   stage.querySelectorAll('[data-poll="voters"]').forEach((element) => { element.textContent = voterText })
-  stage.querySelectorAll('[data-poll="results"]').forEach((region) => renderResultsRegion(region, results.questions))
+  stage.querySelectorAll('[data-poll="prompt"]').forEach((element) => {
+    const question = questionForElement(element, results.questions)
+    if (question) element.textContent = question.prompt.toUpperCase()
+  })
+  stage.querySelectorAll('[data-poll="results"]').forEach((region) => {
+    if (region.dataset.pollQuestion) renderSingleQuestionRegion(region, questionForElement(region, results.questions))
+    else renderResultsRegion(region, results.questions)
+  })
 }
 
 export async function startPoll({ stage, statusElement, params }) {
