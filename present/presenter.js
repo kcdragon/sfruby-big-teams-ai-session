@@ -35,6 +35,16 @@ async function loadDeck() {
   renderIcons(stage)
   slides = [...stage.querySelectorAll(":scope > section")]
   slides.forEach(layerLikeTheSlideFormat)
+  stage.append(buildPollBadge())
+}
+
+// A small QR in the corner of every slide, so people who walk in late can still join the poll.
+// Slides that already show the big QR set data-hide-poll-badge.
+function buildPollBadge() {
+  const badge = document.createElement("div")
+  badge.id = "poll-badge"
+  badge.innerHTML = `<span>JOIN THE POLL<br><b>POLLS.GAMESTATS.AI/SFRUBY</b></span><img src="../deck/project/assets/poll-qr.svg" alt="QR code for polls.gamestats.ai/sfruby">`
+  return badge
 }
 
 function layerLikeTheSlideFormat(slide) {
@@ -59,6 +69,7 @@ function slideIndexFromHash() {
 function goTo(index, { broadcast = true } = {}) {
   currentIndex = Math.max(0, Math.min(slides.length - 1, index))
   slides.forEach((slide, slideIndex) => slide.classList.toggle("is-current", slideIndex === currentIndex))
+  document.getElementById("poll-badge")?.toggleAttribute("hidden", slides[currentIndex]?.hasAttribute("data-hide-poll-badge"))
   history.replaceState(null, "", `${location.search}#slide-${currentIndex + 1}`)
   if (broadcast) channel.postMessage({ type: "go", index: currentIndex })
   if (isNotesWindow) renderNotes()
