@@ -11,7 +11,9 @@ server = WEBrick::HTTPServer.new(
   BindAddress: "127.0.0.1",
   DocumentRoot: root,
   AccessLog: [],
-  Logger: WEBrick::Log.new($stderr, WEBrick::Log::WARN)
+  Logger: WEBrick::Log.new($stderr, WEBrick::Log::WARN),
+  # Never cache, so a plain reload always picks up edits to slides and presenter code.
+  RequestCallback: ->(_request, response) { response["Cache-Control"] = "no-store" }
 )
 server.config[:MimeTypes]["json"] = "application/json"
 trap("INT") { server.shutdown }
