@@ -34,6 +34,21 @@ async function loadDeck() {
   stage.innerHTML = slideMarkup.join("\n")
   renderIcons(stage)
   slides = [...stage.querySelectorAll(":scope > section")]
+  slides.forEach(layerLikeTheSlideFormat)
+}
+
+function layerLikeTheSlideFormat(slide) {
+  let passedFirstFlowChild = false
+  for (const child of slide.children) {
+    if (child.tagName === "ASIDE") continue
+    if (child.style.position === "absolute") {
+      child.style.zIndex = passedFirstFlowChild ? "2" : "0"
+    } else {
+      passedFirstFlowChild = true
+      child.style.position ||= "relative"
+      child.style.zIndex = "1"
+    }
+  }
 }
 
 function slideIndexFromHash() {
