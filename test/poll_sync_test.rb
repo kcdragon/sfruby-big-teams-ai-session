@@ -9,14 +9,13 @@ class PollSyncTest < Minitest::Test
     def initialize(existing_poll)
       @existing_poll = existing_poll
       @applied = []
-      @next_id = 100
     end
 
     def fetch_poll(_slug) = @existing_poll
 
     def apply(change)
       @applied << change
-      {"id" => (@next_id += 1)}
+      {}
     end
   end
 
@@ -31,75 +30,61 @@ class PollSyncTest < Minitest::Test
     }
   end
 
+  # Shaped like results.json, which ranks options by votes.
   def matching_poll
     {
-      "slug" => "sfruby", "title" => "What is the room using?",
+      "slug" => "sfruby", "title" => "What is the room using?", "voter_count" => 0,
       "questions" => [
-        {"id" => 1, "prompt" => "How many engineers?", "allows_multiple" => false, "position" => 1,
-         "options" => [{"id" => 11, "label" => "Few", "position" => 1}, {"id" => 12, "label" => "Many", "position" => 2}]},
-        {"id" => 2, "prompt" => "Which agents?", "allows_multiple" => true, "position" => 2,
-         "options" => [{"id" => 21, "label" => "Claude Code", "position" => 1}, {"id" => 22, "label" => "Cursor", "position" => 2}]}
+        {"id" => 1, "prompt" => "How many engineers?", "allows_multiple" => false,
+         "options" => [{"id" => 12, "label" => "Many", "votes" => 3}, {"id" => 11, "label" => "Few", "votes" => 1}]},
+        {"id" => 2, "prompt" => "Which agents?", "allows_multiple" => true,
+         "options" => [{"id" => 21, "label" => "Claude Code", "votes" => 0}, {"id" => 22, "label" => "Cursor", "votes" => 0}]}
       ]
     }
   end
 
-  def plan(existing_poll)
-    PollSync::Planner.new(definition: definition, existing_poll: existing_poll).changes
+  def change_for(existing_poll)
+    PollSync::Planner.new(definition: definition, existing_poll: existing_poll).change
   end
 
-  def test_matching_poll_needs_no_changes
-    assert_empty plan(matching_poll)
+  def test_matching_poll_needs_no_change_even_when_options_are_ranked
+    assert_nil change_for(matching_poll)
   end
 
-  def test_missing_poll_is_created_with_its_questions
-    changes = plan(nil)
+  def test_missing_poll_is_created_in_one_request
+    change = change_for(nil)
 
-    assert_equal [:post, "/polls"], [changes[0].http_method, changes[0].path]
-    assert_equal({poll: {slug: "sfruby", title: "What is the room using?"}}, changes[0].body)
-    assert_equal ["/polls/sfruby/questions"] * 2, changes.drop(1).map(&:path)
-    assert_equal [["Few", "Many"], ["Claude Code", "Cursor"]], changes.drop(1).map(&:follow_up_options)
-    assert_equal [1, 2], changes.drop(1).map { |change| change.body[:question][:position] }
+    assert_equal [:post, "/"], [change.http_method, change.path]
+    assert_equal "sfruby", change.body[:poll][:slug]
+    assert_equal "What is the room using?", change.body[:poll][:title]
+    assert_equal [
+      {prompt: "How many engineers?", allows_multiple: false, options: ["Few", "Many"]},
+      {prompt: "Which agents?", allows_multiple: true, options: ["Claude Code", "Cursor"]}
+    ], change.body[:poll][:questions]
   end
 
-  def test_reworded_question_is_updated_in_place
+  def test_changed_poll_is_replaced_with_the_full_definition
     poll = matching_poll
     poll["questions"][0]["prompt"] = "Old wording"
+    poll["questions"][1]["options"] << {"id" => 23, "label" => "Leftover", "votes" => 0}
+    poll["questions"] << {"id" => 3, "prompt" => "Stale", "allows_multiple" => false, "options" => []}
 
-    changes = plan(poll)
+    change = change_for(poll)
 
-    assert_equal 1, changes.size
-    assert_equal :patch, changes[0].http_method
-    assert_equal "/polls/sfruby/questions/1", changes[0].path
-    assert_equal "How many engineers?", changes[0].body[:question][:prompt]
+    assert_equal [:patch, "/sfruby"], [change.http_method, change.path]
+    assert_equal 2, change.body[:poll][:questions].size
+    assert_equal [
+      "Question 1 prompt: Old wording -> How many engineers?",
+      "Question 2 remove option: Leftover",
+      "Remove question 3: Stale"
+    ], change.summary
   end
 
-  def test_options_are_added_updated_and_deleted_by_position
+  def test_title_change_alone_is_sent
     poll = matching_poll
-    poll["questions"][1]["options"] = [
-      {"id" => 21, "label" => "Claude", "position" => 1},
-      {"id" => 23, "label" => "Leftover", "position" => 3},
-    ]
+    poll["title"] = "Old title"
 
-    changes = plan(poll)
-
-    assert_equal(
-      [[:patch, "/polls/sfruby/questions/2/options/21"], [:patch, "/polls/sfruby/questions/2/options/23"]],
-      changes.map { |change| [change.http_method, change.path] }
-    )
-    assert_equal({option: {label: "Cursor", position: 2}}, changes[1].body)
-  end
-
-  def test_extra_questions_and_options_are_deleted
-    poll = matching_poll
-    poll["questions"][0]["options"] << {"id" => 13, "label" => "Lots", "position" => 3}
-    poll["questions"] << {"id" => 3, "prompt" => "Stale", "allows_multiple" => false, "position" => 3, "options" => []}
-
-    changes = plan(poll)
-
-    assert_equal(
-      [[:delete, "/polls/sfruby/questions/1/options/13"], [:delete, "/polls/sfruby/questions/3"]],
-      changes.map { |change| [change.http_method, change.path] }
-    )
+    assert_equal ["Rename poll: Old title -> What is the room using?"], change_for(poll).summary
   end
 
   def test_dry_run_sends_nothing
@@ -110,12 +95,22 @@ class PollSyncTest < Minitest::Test
     assert_empty client.applied
   end
 
-  def test_apply_creates_options_under_each_new_question
+  def test_apply_sends_the_change
     client = FakeClient.new(nil)
 
     PollSync.run(definition: definition, client: client, apply: true, output: StringIO.new)
 
-    option_paths = client.applied.select { |change| change.path.end_with?("/options") }.map(&:path)
-    assert_equal ["/polls/sfruby/questions/102/options"] * 2 + ["/polls/sfruby/questions/105/options"] * 2, option_paths
+    assert_equal [[:post, "/"]], client.applied.map { |change| [change.http_method, change.path] }
+  end
+
+  def test_warns_when_votes_would_block_question_changes
+    poll = matching_poll
+    poll["voter_count"] = 4
+    poll["questions"][0]["prompt"] = "Old wording"
+    output = StringIO.new
+
+    PollSync.run(definition: definition, client: FakeClient.new(poll), apply: false, output: output)
+
+    assert_includes output.string, "4 people have voted"
   end
 end

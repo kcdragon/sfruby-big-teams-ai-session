@@ -31,11 +31,11 @@ POLLS_API_TOKEN=... bin/sync-poll            # show what would change
 POLLS_API_TOKEN=... bin/sync-poll --apply    # make the changes
 ```
 
-`POLLS_API_URL` defaults to `https://polls.gamestats.ai`. The script matches questions and options by position, so rewording one updates it in place (keeping its votes) instead of deleting and recreating it. It expects Rails-style JSON routes, listed in `PollSync::Routes` in `lib/poll_sync.rb`: `GET/POST /polls`, `GET/PATCH /polls/:slug`, `POST /polls/:slug/questions`, `PATCH/DELETE /polls/:slug/questions/:id`, and the same for `/polls/:slug/questions/:question_id/options`. The token is sent as `Authorization: Bearer`. Run the tests with `ruby test/poll_sync_test.rb`.
+`POLLS_API_URL` defaults to `https://polls.gamestats.ai`. The API takes the whole poll in one request: `POST /` creates it and `PATCH /:slug` replaces its title and questions, with the token sent as `Authorization: Bearer`. The script reads `GET /:slug/results.json` to show what would change. Resending an unchanged poll does nothing, and once anyone has voted the server refuses question changes (the title can still change). Run the tests with `ruby test/poll_sync_test.rb`.
 
 Demo mode (`?demo` or the D key) generates fake votes for the questions in `deck/poll.json`.
 
-Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills the `data-poll` elements in the slides. `data-poll-question="N"` refers to the Nth question, so the poll's question order must match the slides. If the server can't be reached, it keeps showing the last results it got.
+Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills the `data-poll` elements in the slides. `data-poll-question="N"` refers to the Nth question, so the poll's question order must match the slides. If the server can't be reached, it keeps showing the last results it got. The server lists options by vote count, so the deck puts them back in the order from `deck/poll.json` for the column charts and the role cards.
 
 The JSON it expects (`joined_count` is how many phones have opened the voting page; `voter_count` is how many have submitted answers):
 
@@ -45,7 +45,7 @@ The JSON it expects (`joined_count` is how many phones have opened the voting pa
   "voter_count": 42,
   "questions": [
     {"id": 1, "prompt": "Which coding agents do you use?",
-     "options": [{"id": 3, "label": "Claude Code", "position": 1, "votes": 30}]}
+     "options": [{"id": 3, "label": "Claude Code", "votes": 30}]}
   ]
 }
 ```

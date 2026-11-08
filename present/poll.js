@@ -43,6 +43,21 @@ function styled(tagName, style, text) {
   return element
 }
 
+// results.json ranks options by votes and has no position, so take the order from
+// deck/poll.json. Column charts and option counts depend on that fixed order.
+function withDeckOrder(results, pollDefinition) {
+  const questions = results.questions.map((question, questionIndex) => {
+    const labels = pollDefinition?.questions[questionIndex]?.options ?? []
+    const options = question.options.map((option, index) => {
+      const deckIndex = labels.indexOf(option.label)
+      const position = option.position ?? (deckIndex >= 0 ? deckIndex + 1 : labels.length + index + 1)
+      return { ...option, position }
+    })
+    return { ...question, options }
+  })
+  return { ...results, questions }
+}
+
 function optionsInPositionOrder(question) {
   return question.options
     .map((option, index) => ({ ...option, position: option.position ?? index + 1 }))
@@ -141,7 +156,8 @@ function renderOptionCount(element, question) {
   element.textContent = `${option.votes} · ${percent}%`
 }
 
-function render(stage, results) {
+function render(stage, unorderedResults, pollDefinition) {
+  const results = withDeckOrder(unorderedResults, pollDefinition)
   const voterText = `${results.voter_count} ${results.voter_count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} VOTED`
   stage.querySelectorAll('[data-poll="voters"]').forEach((element) => { element.textContent = voterText })
   if (Number.isInteger(results.joined_count)) {
@@ -184,12 +200,12 @@ export async function startPoll({ stage, statusElement, params }) {
 
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null")
-    if (cached && !demoMode) render(stage, cached)
+    if (cached && !demoMode) render(stage, cached, pollDefinition)
   } catch {}
 
   async function refresh() {
     if (demoMode) {
-      render(stage, demoSource())
+      render(stage, demoSource(), pollDefinition)
       showStatus("Demo poll data (press D to switch to live)")
       return
     }
@@ -197,7 +213,7 @@ export async function startPoll({ stage, statusElement, params }) {
       const response = await fetch(resultsUrl, { cache: "no-store" })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const results = await response.json()
-      render(stage, results)
+      render(stage, results, pollDefinition)
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(results)) } catch {}
       showStatus(null)
     } catch (error) {
