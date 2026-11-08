@@ -1,0 +1,26 @@
+html, body { margin: 0; height: 100%; background: #0b0d18; overflow: hidden; }
+#viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#stage { position: relative; width: 1920px; height: 1080px; flex: none; transform-origin: center center; }
+#stage > section {
+  position: absolute; inset: 0; width: 1920px; height: 1080px;
+  box-sizing: border-box; overflow: hidden;
+}
+#stage > section:not(.is-current) { display: none !important; }
+#stage section * { box-sizing: border-box; margin: 0; }
+#stage section aside { display: none !important; }
+#stage section ul, #stage section ol { padding-left: 1.2em; }
+#stage section x-icon { display: inline-block; flex: none; }
+#stage section x-icon svg { width: 100%; height: 100%; display: block; }
+
+body.notes-mode { overflow: auto; background: #14182e; color: #fbfbf8; font-family: system-ui, sans-serif; }
+body.notes-mode #viewport { display: none; }
+#notes-view { padding: 32px; display: flex; flex-direction: column; gap: 24px; }
+#notes-view header { display: flex; gap: 32px; font-size: 28px; font-weight: 700; color: #f2c94c; }
+#notes-current { font-size: 32px; line-height: 1.45; white-space: pre-wrap; }
+#notes-next { font-size: 22px; color: #cbbdb6; }
+#notes-view footer { font-size: 16px; color: #8a93a6; }
+
+#poll-status {
+  position: fixed; right: 12px; bottom: 12px; margin: 0; padding: 6px 10px;
+  font: 600 13px system-ui, sans-serif; color: #fbfbf8; background: rgba(20, 24, 46, 0.85); border-radius: 6px;
+}

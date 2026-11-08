@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+# Serves the deck and opens the presenter. Usage: bin/present [port]
+require "webrick"
+
+root = File.expand_path("..", __dir__)
+port = Integer(ARGV.fetch(0, ENV.fetch("PORT", "4567")))
+url = "http://localhost:#{port}/present/"
+
+server = WEBrick::HTTPServer.new(
+  Port: port,
+  BindAddress: "127.0.0.1",
+  DocumentRoot: root,
+  AccessLog: [],
+  Logger: WEBrick::Log.new($stderr, WEBrick::Log::WARN)
+)
+server.config[:MimeTypes]["json"] = "application/json"
+trap("INT") { server.shutdown }
+
+puts "Presenting at #{url}"
+puts "Keys: arrows or space to move, F fullscreen, N speaker notes window, D demo poll data"
+system("open", url) if RUBY_PLATFORM.include?("darwin") && !ENV["NO_OPEN"]
+server.start

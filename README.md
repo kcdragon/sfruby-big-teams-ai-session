@@ -6,17 +6,34 @@ Session materials for SF Ruby 2026 (Nov 10–12, SFJAZZ). The session runs 1:15�
 2. **Level 2 (1:45–2:15):** Birds of a feather. Six topic tables with report-outs.
 3. **Level 3 (2:15–2:45):** Two wins and a regret.
 
+## Presenting
+
+```sh
+bin/present          # serves the deck at http://localhost:4567/present/ and opens it
+```
+
+- Arrow keys, space or a clicker move between slides; click also advances
+- **F** toggles fullscreen
+- **N** opens a speaker notes window, with a clock and elapsed timer, that stays in sync
+- **D** toggles fake poll data for rehearsal (or open `/present/?demo`)
+- `/present/?polls=http://polls.localhost:3000` points the poll at a local Game Stats AI server
+
 ## Slide deck
 
-The deck is a Claude Slides artifact: https://claude.ai/artifact/VesjQXfDyxrAM5Qx7tKUTH
-
-`deck/project/` holds its source files:
-
-- `deck.json`: the slide order, sections and fonts
-- `slides/<id>.html`: one file per slide, with speaker notes in each slide's `<aside>`
-
-The artifact is the live copy. After editing slides in the browser, ask Claude to pull the latest files into `deck/project/` and commit them. After editing files here, ask Claude to publish `deck/project/` back to the artifact.
+The slides live in `deck/project/`: `deck.json` sets the order, sections and fonts, and `slides/<id>.html` holds one slide each, with speaker notes in the slide's `<aside>`. This repo is the source of truth. The Claude artifact (https://claude.ai/artifact/VesjQXfDyxrAM5Qx7tKUTH) is an older preview copy and does not show live poll results.
 
 ## Live poll
 
-Attendees vote at polls.gamestats.ai/sfruby. That app is built in the game-stats-ai repo.
+Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills any `data-poll="voters"` and `data-poll="results"` elements in the slides. If the server can't be reached, it keeps showing the last results it got.
+
+The JSON it expects:
+
+```json
+{
+  "voter_count": 42,
+  "questions": [
+    {"id": 1, "prompt": "Which coding agents do you use?",
+     "options": [{"id": 3, "label": "Claude Code", "votes": 30}]}
+  ]
+}
+```

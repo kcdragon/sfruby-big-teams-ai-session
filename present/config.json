@@ -1,0 +1,4 @@
+{
+  "pollResultsUrl": "https://polls.gamestats.ai/sfruby/results.json",
+  "pollRefreshSeconds": 2
+}
