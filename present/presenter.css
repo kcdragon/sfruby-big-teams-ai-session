@@ -24,3 +24,5 @@ body.notes-mode #viewport { display: none; }
   position: fixed; right: 12px; bottom: 12px; margin: 0; padding: 6px 10px;
   font: 600 13px system-ui, sans-serif; color: #fbfbf8; background: rgba(20, 24, 46, 0.85); border-radius: 6px;
 }
+
+[hidden] { display: none !important; }
