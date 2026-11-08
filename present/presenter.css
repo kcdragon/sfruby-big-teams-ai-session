@@ -31,7 +31,6 @@ body.notes-mode #viewport { display: none; }
   background: #1B2C8F; border: 4px solid #14182E; box-shadow: 6px 6px 0 #14182E;
   font: 14px/1.7 'Press Start 2P', monospace; color: #FBFBF8; text-decoration: none;
 }
-#poll-badge.on-left { right: auto; left: 16px; }
 #poll-badge b { font-weight: 400; color: #F2C94C; }
 #poll-badge img { width: 104px; height: 104px; display: block; background: #FBFBF8; }
 

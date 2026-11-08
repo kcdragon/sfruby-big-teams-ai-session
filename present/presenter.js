@@ -69,9 +69,7 @@ function slideIndexFromHash() {
 function goTo(index, { broadcast = true } = {}) {
   currentIndex = Math.max(0, Math.min(slides.length - 1, index))
   slides.forEach((slide, slideIndex) => slide.classList.toggle("is-current", slideIndex === currentIndex))
-  const badge = document.getElementById("poll-badge")
-  badge?.toggleAttribute("hidden", slides[currentIndex]?.hasAttribute("data-hide-poll-badge"))
-  badge?.classList.toggle("on-left", slides[currentIndex]?.dataset.pollBadge === "left")
+  document.getElementById("poll-badge")?.toggleAttribute("hidden", slides[currentIndex]?.hasAttribute("data-hide-poll-badge"))
   history.replaceState(null, "", `${location.search}#slide-${currentIndex + 1}`)
   if (broadcast) channel.postMessage({ type: "go", index: currentIndex })
   if (isNotesWindow) renderNotes()
