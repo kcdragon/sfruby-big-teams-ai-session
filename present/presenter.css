@@ -1,3 +1,13 @@
+/* Pixelify Sans draws 5 like an S. Slides list 'Deck Digits' first, so digits in
+   Pixelify text use Press Start 2P's digits instead, scaled to sit beside Pixelify letters. */
+@font-face {
+  font-family: 'Deck Digits';
+  src: url(https://fonts.gstatic.com/s/pressstart2p/v16/e3t4euO8T-267oIAQAu6jDQyK3nVivNm4I81.woff2) format('woff2');
+  unicode-range: U+0030-0039;
+  size-adjust: 72%;
+  font-display: block;
+}
+
 html, body { margin: 0; height: 100%; background: #0b0d18; overflow: hidden; }
 #viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
 #stage { position: relative; width: 1920px; height: 1080px; flex: none; transform-origin: center center; }
