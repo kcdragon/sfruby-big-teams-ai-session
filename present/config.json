@@ -1,4 +1,4 @@
 {
-  "pollResultsUrl": "https://polls.gamestats.ai/sfruby/results.json",
-  "pollRefreshSeconds": 2
+  "pollSocketUrl": "wss://polls.gamestats.ai/live",
+  "pollChannel": "Polls::ResultsChannel"
 }

@@ -1,3 +1,5 @@
+import { subscribeToPoll } from "./poll-socket.js"
+
 const CACHE_KEY = "big-teams-poll-results"
 const MAX_RANKED_BARS = 8
 const COLUMN_MAX_HEIGHT = 220
@@ -29,11 +31,14 @@ function buildDemoSource(pollDefinition) {
   }
 }
 
-function resolveResultsUrl(configuredUrl, params) {
+// ?polls=http://polls.localhost:3000 points the deck at another Game Stats AI server.
+function resolveSocketUrl(configuredUrl, params) {
   const originOverride = params.get("polls")
   if (!originOverride) return configuredUrl
-  const configured = new URL(configuredUrl)
-  return new URL(configured.pathname, originOverride).toString()
+  const override = new URL(originOverride)
+  override.protocol = override.protocol === "https:" ? "wss:" : "ws:"
+  override.pathname = new URL(configuredUrl).pathname
+  return override.toString()
 }
 
 function styled(tagName, style, text) {
@@ -188,10 +193,13 @@ export async function startPoll({ stage, statusElement, params }) {
   if (!stage.querySelector("[data-poll]")) return null
 
   const config = await fetch("config.json", { cache: "no-store" }).then((response) => response.json())
-  const resultsUrl = resolveResultsUrl(config.pollResultsUrl, params)
+  const socketUrl = resolveSocketUrl(config.pollSocketUrl, params)
   const pollDefinition = await fetch("../deck/poll.json", { cache: "no-store" }).then((response) => response.json())
   const demoSource = buildDemoSource(pollDefinition)
   let demoMode = params.has("demo")
+  let demoTimer = null
+  let liveStatus = "Connecting to the poll…"
+  let latestResults = null
 
   const showStatus = (message) => {
     statusElement.hidden = !message
@@ -199,35 +207,49 @@ export async function startPoll({ stage, statusElement, params }) {
   }
 
   try {
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null")
-    if (cached && !demoMode) render(stage, cached, pollDefinition)
+    latestResults = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null")
+    if (latestResults && !demoMode) render(stage, latestResults, pollDefinition)
   } catch {}
 
-  async function refresh() {
-    if (demoMode) {
-      render(stage, demoSource(), pollDefinition)
-      showStatus("Demo poll data (press D to switch to live)")
-      return
-    }
-    try {
-      const response = await fetch(resultsUrl, { cache: "no-store" })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const results = await response.json()
-      render(stage, results, pollDefinition)
+  // Results are pushed over the WebSocket whenever a vote comes in or someone joins.
+  subscribeToPoll({
+    url: socketUrl,
+    identifier: { channel: config.pollChannel, slug: pollDefinition.slug },
+    onResults(results) {
+      latestResults = results
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(results)) } catch {}
-      showStatus(null)
-    } catch (error) {
-      showStatus(`Poll offline (${error.message}), showing the last results`)
+      if (!demoMode) render(stage, results, pollDefinition)
+    },
+    onStatus({ state, reason }) {
+      liveStatus = {
+        connecting: latestResults ? "Poll reconnecting, showing the last results" : "Connecting to the poll…",
+        live: null,
+        offline: `Poll offline (${reason}), showing the last results`,
+        rejected: `The server has no "${pollDefinition.slug}" poll. Run bin/sync-poll --apply`,
+      }[state]
+      if (!demoMode) showStatus(liveStatus)
+    },
+  })
+
+  function applyMode() {
+    clearInterval(demoTimer)
+    if (demoMode) {
+      const tick = () => render(stage, demoSource(), pollDefinition)
+      tick()
+      demoTimer = setInterval(tick, 2000)
+      showStatus("Demo poll data (press D to switch to live)")
+    } else {
+      if (latestResults) render(stage, latestResults, pollDefinition)
+      showStatus(liveStatus)
     }
   }
 
-  await refresh()
-  setInterval(refresh, (config.pollRefreshSeconds ?? 2) * 1000)
+  applyMode()
 
   return {
     toggleDemo() {
       demoMode = !demoMode
-      refresh()
+      applyMode()
     },
   }
 }

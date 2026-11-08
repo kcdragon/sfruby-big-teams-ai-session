@@ -16,7 +16,7 @@ bin/present          # serves the deck at http://localhost:4567/present/ and ope
 - **F** toggles fullscreen
 - **N** opens a speaker notes window, with a clock and elapsed timer, that stays in sync
 - **D** toggles fake poll data for rehearsal (or open `/present/?demo`)
-- `/present/?polls=http://polls.localhost:3000` points the poll at a local Game Stats AI server
+- `/present/?polls=http://polls.localhost:3000` points the poll WebSocket at a local Game Stats AI server
 
 ## Slide deck
 
@@ -35,9 +35,9 @@ POLLS_API_TOKEN=... bin/sync-poll --apply    # make the changes
 
 Demo mode (`?demo` or the D key) generates fake votes for the questions in `deck/poll.json`.
 
-Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself: `present/poll.js` polls the URL in `present/config.json` every 2 seconds and fills the `data-poll` elements in the slides. `data-poll-question="N"` refers to the Nth question, so the poll's question order must match the slides. If the server can't be reached, it keeps showing the last results it got. The server lists options by vote count, so the deck puts them back in the order from `deck/poll.json` for the column charts and the role cards.
+Attendees vote at https://polls.gamestats.ai/sfruby (the QR code is `deck/project/assets/poll-qr.svg`). Game Stats AI only hosts the voting page and a JSON endpoint with the vote counts. The deck renders the results itself. `present/poll.js` opens a WebSocket to the Action Cable endpoint in `present/config.json` (`wss://polls.gamestats.ai/live`) and subscribes to `Polls::ResultsChannel` for the poll's slug. The server sends the full results on subscribe and again on every vote, join or poll update, and the deck redraws the `data-poll` elements in the slides (`present/poll-socket.js` holds the small Action Cable client). `data-poll-question="N"` refers to the Nth question, so the poll's question order must match the slides. If the connection drops, it keeps showing the last results it got and reconnects on its own. The server lists options by vote count, so the deck puts them back in the order from `deck/poll.json` for the column charts and the role cards.
 
-The JSON it expects (`joined_count` is how many phones have opened the voting page; `voter_count` is how many have submitted answers):
+Each message is the same JSON as `GET /sfruby/results.json` (`joined_count` is how many phones have opened the voting page; `voter_count` is how many have submitted answers):
 
 ```json
 {
