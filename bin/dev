@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+# Starts the deck server and the poll watcher together. Ctrl-C stops both.
+#
+#   bin/dev          # presents at http://localhost:4567/present/
+#   bin/dev 5000     # another port
+#
+# Needs POLLS_API_TOKEN for the watcher to push poll changes to Game Stats AI.
+root = File.expand_path("..", __dir__)
+port = ARGV.fetch(0, ENV.fetch("PORT", "4567"))
+
+warn "POLLS_API_TOKEN is not set, so poll changes will rebuild the slides but not reach the server." if ENV["POLLS_API_TOKEN"].to_s.empty?
+
+pids = [
+  spawn(File.join(root, "bin/present"), port),
+  spawn(File.join(root, "bin/poll"), "--watch")
+]
+
+stop = lambda do |_signal|
+  pids.each { |pid| Process.kill("INT", pid) rescue nil }
+end
+trap("INT", &stop)
+trap("TERM", &stop)
+
+# If either one exits, stop the other too.
+finished = Process.wait
+pids.delete(finished)
+stop.call(nil)
+pids.each { |pid| Process.wait(pid) rescue nil }

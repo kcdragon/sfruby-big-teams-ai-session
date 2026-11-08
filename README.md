@@ -9,6 +9,7 @@ Session materials for SF Ruby 2026 (Nov 10â€“12, SFJAZZ). The session runs 1:15â
 ## Presenting
 
 ```sh
+bin/dev              # serves the deck and auto-syncs deck/poll.json (see Live poll)
 bin/present          # serves the deck at http://localhost:4567/present/ and opens it
 ```
 
@@ -27,8 +28,10 @@ The slides live in `deck/project/`: `deck.json` sets the order, sections and fon
 `deck/poll.json` is the single source for the poll: its questions drive both the poll slides and the live poll on Game Stats AI. After editing it, run:
 
 ```sh
+bin/dev             # serve the deck and run bin/poll --watch together
 bin/poll            # rebuild the poll slides, show what would change on the server
 bin/poll --apply    # rebuild the poll slides and update the server
+bin/poll --watch    # rebuild and update the server now and on every save of poll.json
 bin/poll --reset    # rebuild, then delete the poll (and every vote) and create it fresh
 bin/poll --slides   # rebuild the poll slides only
 ```
