@@ -225,7 +225,7 @@ export async function startPoll({ stage, statusElement, params }) {
         connecting: latestResults ? "Poll reconnecting, showing the last results" : "Connecting to the poll…",
         live: null,
         offline: `Poll offline (${reason}), showing the last results`,
-        rejected: `The server has no "${pollDefinition.slug}" poll. Run bin/sync-poll --apply`,
+        rejected: `The server has no "${pollDefinition.slug}" poll. Run bin/poll --apply`,
       }[state]
       if (!demoMode) showStatus(liveStatus)
     },
