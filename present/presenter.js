@@ -73,6 +73,14 @@ function goTo(index, { broadcast = true } = {}) {
   history.replaceState(null, "", `${location.search}#slide-${currentIndex + 1}`)
   if (broadcast) channel.postMessage({ type: "go", index: currentIndex })
   if (isNotesWindow) renderNotes()
+  else poll?.setLiveQuestion(liveQuestionFor(slides[currentIndex]))
+}
+
+// The question phones should show while this slide is up: data-poll-live on the slide,
+// else the question its results show, else none.
+function liveQuestionFor(slide) {
+  const value = slide?.dataset.pollLive ?? slide?.querySelector("[data-poll-question]")?.dataset.pollQuestion
+  return value ? Number(value) : null
 }
 
 function fitStage() {
@@ -145,6 +153,7 @@ async function start() {
   stage.addEventListener("click", () => goTo(currentIndex + 1))
   goTo(slideIndexFromHash(), { broadcast: false })
   poll = await startPoll({ stage, statusElement: document.getElementById("poll-status"), params })
+  poll?.setLiveQuestion(liveQuestionFor(slides[currentIndex]))
 }
 
 start().catch((error) => {

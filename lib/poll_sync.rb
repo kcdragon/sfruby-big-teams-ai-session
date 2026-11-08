@@ -105,6 +105,11 @@ module PollSync
       JSON.parse(response.body)
     end
 
+    # Which question phones show: a 1-based position, or nil for none.
+    def set_current_question(slug, position)
+      apply(Change.new(http_method: :patch, path: Routes.poll(slug), body: {poll: {current_question: position}}))
+    end
+
     def delete_poll(slug)
       response = perform(:delete, Routes.poll(slug))
       return if response.is_a?(Net::HTTPSuccess) || response.code == "404"

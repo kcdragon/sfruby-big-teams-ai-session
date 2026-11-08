@@ -246,7 +246,32 @@ export async function startPoll({ stage, statusElement, params }) {
 
   applyMode()
 
+  // Switches every phone to the question on screen. Waits until the slide settles so
+  // arrowing quickly through the deck doesn't flip phones through every question.
+  let sentQuestion
+  let switchTimer = null
+  function setLiveQuestion(question) {
+    clearTimeout(switchTimer)
+    if (demoMode || question === sentQuestion) return
+    switchTimer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/current-question", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+        })
+        const body = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`)
+        sentQuestion = question
+        showStatus(liveStatus)
+      } catch (error) {
+        showStatus(`Phones did not switch to ${question ? `question ${question}` : "waiting"}: ${error.message}`)
+      }
+    }, 400)
+  }
+
   return {
+    setLiveQuestion,
     toggleDemo() {
       demoMode = !demoMode
       applyMode()

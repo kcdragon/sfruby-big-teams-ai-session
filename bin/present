@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 # Serves the deck and opens the presenter. Usage: bin/present [port]
+require "json"
 require "webrick"
+require_relative "../lib/poll_sync"
 
 root = File.expand_path("..", __dir__)
 port = Integer(ARGV.fetch(0, ENV.fetch("PORT", "4567")))
@@ -16,6 +18,33 @@ server = WEBrick::HTTPServer.new(
   RequestCallback: ->(_request, response) { response["Cache-Control"] = "no-store" }
 )
 server.config[:MimeTypes]["json"] = "application/json"
+
+# The deck calls this when the slide changes, to switch every phone to that slide's
+# question. It runs here, not in the browser, so the API token never reaches the page.
+poll_slug = JSON.parse(File.read(File.join(root, "deck/poll.json"))).fetch("slug")
+server.mount_proc("/api/current-question") do |request, response|
+  response["Content-Type"] = "application/json"
+  token = ENV["POLLS_API_TOKEN"].to_s
+  # Requiring a JSON POST keeps other websites open in the browser from calling this:
+  # browsers won't send that cross-site without a CORS preflight, which this server never allows.
+  if request.request_method != "POST" || !request.content_type.to_s.start_with?("application/json")
+    response.status = 405
+    response.body = JSON.generate(error: "JSON POST only")
+  elsif token.empty?
+    response.status = 503
+    response.body = JSON.generate(error: "POLLS_API_TOKEN is not set where bin/present runs")
+  else
+    begin
+      position = JSON.parse(request.body.to_s).fetch("question")
+      client = PollSync::Client.new(base_url: ENV.fetch("POLLS_API_URL", "https://polls.gamestats.ai"), token: token)
+      client.set_current_question(poll_slug, position)
+      response.body = JSON.generate(current_question: position)
+    rescue PollSync::Client::RequestFailed, JSON::ParserError, KeyError, SystemCallError, SocketError, Net::OpenTimeout, Net::ReadTimeout => error
+      response.status = 502
+      response.body = JSON.generate(error: error.message)
+    end
+  end
+end
 trap("INT") { server.shutdown }
 
 puts "Presenting at #{url}"
