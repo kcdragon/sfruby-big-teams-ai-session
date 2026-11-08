@@ -1,0 +1,94 @@
+#!/usr/bin/env ruby
+# Simulates N people voting on the live poll, like a room of phones after the QR code
+# goes up: a burst of people opening the page that tails off, a few seconds per
+# question, some skipped questions, some who open it and never vote.
+#
+#   bin/simulate-votes 60                 # 60 people over about 90 seconds
+#   bin/simulate-votes 60 --window 30     # squeeze arrivals into 30 seconds
+#   bin/simulate-votes 60 --speed 5       # run everything 5x faster
+#   bin/simulate-votes 60 --plan          # print what would happen, send nothing
+#
+# Real votes land on the real poll (POLLS_API_URL, default https://polls.gamestats.ai).
+# Clear them afterwards with bin/poll --reset.
+require "json"
+require "optparse"
+require_relative "../lib/vote_simulator"
+
+options = {window: 90.0, speed: 1.0, abandon_rate: 0.12, skip_rate: 0.06, seed: nil, plan: false}
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: bin/simulate-votes N [options]"
+  opts.on("--window SECONDS", Float, "Arrivals spread over this long (default 90)") { |v| options[:window] = v }
+  opts.on("--speed X", Float, "Run X times faster than real time (default 1)") { |v| options[:speed] = v }
+  opts.on("--abandon RATE", Float, "Share who open the page but never vote (default 0.12)") { |v| options[:abandon_rate] = v }
+  opts.on("--skip RATE", Float, "Chance of skipping any one question (default 0.06)") { |v| options[:skip_rate] = v }
+  opts.on("--seed N", Integer, "Random seed, to repeat a run") { |v| options[:seed] = v }
+  opts.on("--plan", "Print the plan without sending anything") { options[:plan] = true }
+end
+parser.parse!
+count = Integer(ARGV.shift || "", exception: false)
+unless count&.positive? && ARGV.empty?
+  warn parser.banner
+  exit 1
+end
+
+$stdout.sync = true
+root = File.expand_path("..", __dir__)
+slug = JSON.parse(File.read(File.join(root, "deck/poll.json"))).fetch("slug")
+base_url = ENV.fetch("POLLS_API_URL", "https://polls.gamestats.ai")
+seed = options[:seed] || Random.new_seed % 100_000
+random = Random.new(seed)
+
+# The questions come from the live voting page, so option ids are always current.
+# Reading them with a throwaway phone counts as one join, like any page view.
+first_page = VoteSimulator::Phone.new(base_url, random).open_page(slug)
+questions = VoteSimulator.parse_questions(first_page)
+abort "No questions found on #{base_url}/#{slug}" if questions.empty?
+
+people = VoteSimulator.plan(count: count, questions: questions, window: options[:window],
+  abandon_rate: options[:abandon_rate], skip_rate: options[:skip_rate], random: random)
+
+stamp = ->(seconds) { format("%02d:%02d", seconds.to_i / 60, seconds.to_i % 60) }
+puts "#{count} people, #{questions.size} questions, arrivals over #{options[:window].round}s, speed #{options[:speed]}x, seed #{seed}"
+
+if options[:plan]
+  people.each do |person|
+    outcome = person.abandons ? "leaves without voting" : "votes at #{stamp.(person.opens_at + person.think_seconds)} (#{person.answers.size}/#{questions.size} answered)"
+    puts "#{stamp.(person.opens_at)}  person #{person.number} opens the page, #{outcome}"
+  end
+  exit
+end
+
+puts "Sending real votes to #{base_url}/#{slug}. Ctrl-C stops; bin/poll --reset clears them afterwards.\n\n"
+started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+elapsed = -> { (Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * options[:speed] }
+sleep_until = ->(at) { (remaining = (at - elapsed.()) / options[:speed]) > 0 && sleep(remaining) }
+tally = Hash.new(0)
+lock = Mutex.new
+log = ->(message, key) { lock.synchronize { tally[key] += 1; puts "#{stamp.(elapsed.())}  #{message}" } }
+
+threads = people.map do |person|
+  Thread.new do
+    phone = VoteSimulator::Phone.new(base_url, Random.new(random.rand(1 << 30)))
+    sleep_until.(person.opens_at)
+    page = phone.open_page(slug)
+    log.("person #{person.number} opened the page", :opened)
+    sleep_until.(person.opens_at + person.think_seconds)
+    if person.abandons
+      log.("person #{person.number} wandered off without voting", :abandoned)
+    else
+      phone.submit(slug, VoteSimulator.authenticity_token(page), person.answers)
+      log.("person #{person.number} voted (#{person.answers.size}/#{questions.size} answered)", :voted)
+    end
+  rescue VoteSimulator::Phone::Failed, SystemCallError, SocketError, Net::OpenTimeout, Net::ReadTimeout => error
+    log.("person #{person.number} failed: #{error.message}", :failed)
+  end
+end
+
+begin
+  threads.each(&:join)
+rescue Interrupt
+  threads.each(&:kill)
+  puts "\nStopped early."
+end
+puts "\nOpened #{tally[:opened]}, voted #{tally[:voted]}, left without voting #{tally[:abandoned]}, failed #{tally[:failed]} " \
+  "(plus 1 join from reading the questions). bin/poll --reset clears them."
