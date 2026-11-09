@@ -2,21 +2,47 @@ require "minitest/autorun"
 require_relative "../lib/vote_simulator"
 
 class VoteSimulatorTest < Minitest::Test
-  PAGE = <<~HTML
-    <form class="poll-shell" action="/sfruby/ballot" accept-charset="UTF-8" method="post">
-    <input type="hidden" name="authenticity_token" value="abc123" />
-    <input type="radio" name="selections[8][]" value="41"><input type="radio" name="selections[8][]" value="42">
-    <input type="checkbox" name="selections[11][]" value="54"><input type="checkbox" name="selections[11][]" value="55">
-    <input type="checkbox" name="selections[11][]" value="56"><input type="submit" value="Vote">
-    </form>
-  HTML
+  def page(type)
+    <<~HTML
+      <p>Question 4 of 6</p>
+      <form class="poll-answer-form" data-poll-answer-form="true" action="/sfruby/answers" accept-charset="UTF-8" method="post">
+      <input type="hidden" name="authenticity_token" value="abc123" />
+      <input type="hidden" name="question_id" id="question_id" value="11" />
+      <input type="#{type}" name="option_ids[]" value="54"><input type="#{type}" name="option_ids[]" value="55">
+      <input type="#{type}" name="option_ids[]" value="56">
+      </form>
+    HTML
+  end
 
-  def questions = VoteSimulator.parse_questions(PAGE)
+  def test_reads_the_current_question_form
+    form = VoteSimulator.parse_form(page("checkbox"))
+    assert_equal ["/sfruby/answers", "abc123", 11, [54, 55, 56], true], [form.action, form.token, form.question_id, form.option_ids, form.multiple]
+    refute VoteSimulator.parse_form(page("radio")).multiple
+  end
 
-  def test_reads_questions_and_token_from_the_form
-    assert_equal [[8, [41, 42], false], [11, [54, 55, 56], true]], questions.map { |q| [q.id, q.option_ids, q.multiple] }
-    assert_equal "selections[8][]", questions.first.field
-    assert_equal "abc123", VoteSimulator.authenticity_token(PAGE)
+  def test_the_waiting_screen_has_no_form
+    assert_nil VoteSimulator.parse_form("<h1>Look up at the screen</h1><p>The next question will show up here.</p>")
+  end
+
+  def test_single_choice_picks_one_and_multiple_choice_never_repeats
+    random = Random.new(2)
+    single = VoteSimulator.parse_form(page("radio"))
+    multiple = VoteSimulator.parse_form(page("checkbox"))
+    weights = VoteSimulator.popularity(single.option_ids, random)
+    200.times do
+      assert_equal 1, VoteSimulator.pick_options(single, weights, random).size
+      picks = VoteSimulator.pick_options(multiple, weights, random)
+      assert_equal picks.uniq, picks
+      assert picks.all? { |id| [54, 55, 56].include?(id) }
+    end
+  end
+
+  def test_the_room_leans_toward_a_favourite
+    random = Random.new(3)
+    form = VoteSimulator::Form.new(option_ids: (1..8).to_a, multiple: false)
+    weights = VoteSimulator.popularity(form.option_ids, random)
+    picks = Array.new(1000) { VoteSimulator.pick_options(form, weights, random).first }.tally
+    assert_operator picks.values.max, :>, picks.values.min * 3
   end
 
   def test_arrivals_are_front_loaded_and_stay_in_the_window
@@ -25,29 +51,10 @@ class VoteSimulatorTest < Minitest::Test
     assert_operator times.count { |t| t < 25 }, :>, times.count { |t| t >= 75 } * 4
   end
 
-  def test_single_choice_gets_one_answer_and_multiple_choice_never_repeats
-    random = Random.new(2)
-    popular = VoteSimulator.popularity(questions, random)
-    200.times do
-      answers = VoteSimulator.choose_answers(questions, popular, random, skip_rate: 0)
-      assert_equal 1, answers["selections[8][]"].size
-      assert_equal answers["selections[11][]"].uniq, answers["selections[11][]"]
-      assert answers["selections[11][]"].all? { |id| [54, 55, 56].include?(id) }
-    end
-  end
-
-  def test_the_room_leans_toward_a_favourite
-    random = Random.new(3)
-    many = [VoteSimulator::Question.new(id: 1, field: "f", option_ids: (1..8).to_a, multiple: false)]
-    popular = VoteSimulator.popularity(many, random)
-    picks = Array.new(1000) { VoteSimulator.choose_answers(many, popular, random, skip_rate: 0)["f"].first }.tally
-    assert_operator picks.values.max, :>, picks.values.min * 3
-  end
-
-  def test_plan_marks_some_people_as_leaving_and_spaces_out_their_votes
-    people = VoteSimulator.plan(count: 500, questions: questions, window: 60, abandon_rate: 0.2, skip_rate: 0.1, random: Random.new(4))
-    assert_equal (1..500).to_a, people.map(&:number)
-    assert_in_delta 100, people.count(&:abandons), 30
-    assert people.all? { |p| p.think_seconds.between?(2.4, 30) }
+  def test_most_people_tap_within_ten_seconds
+    random = Random.new(5)
+    times = Array.new(2000) { VoteSimulator.reaction_time(random) }
+    assert times.all? { |t| t.between?(1.5, 40) }
+    assert_operator times.count { |t| t < 10 }, :>, 1600
   end
 end

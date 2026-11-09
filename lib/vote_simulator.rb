@@ -1,41 +1,43 @@
+require "json"
 require "net/http"
 require "uri"
 
-# Simulates a room of people voting on the live poll the way phones do: open the
-# voting page (which counts as joining), read and tap for a while, then submit the
-# form once. Timing and choices are random but shaped like a real audience.
+# Simulates a room of phones on the live poll. Phones show one question at a time,
+# whichever the presenter has open. Each simulated person opens the page at some point,
+# then answers each question a few seconds after it appears, the way people do: most
+# quickly, some slowly, a few skip, a few change their mind, some drift away.
 module VoteSimulator
-  # One question on the voting page: the form field and the option ids it accepts.
-  Question = Struct.new(:id, :field, :option_ids, :multiple, keyword_init: true)
-
-  # What one simulated person will do, decided up front so a run can be previewed.
-  Person = Struct.new(:number, :opens_at, :think_seconds, :abandons, :answers, keyword_init: true)
+  # The answer form for the current question, read from the phone page.
+  Form = Struct.new(:action, :token, :question_id, :option_ids, :multiple, keyword_init: true)
 
   module_function
 
-  # Reads the questions from the voting page's form.
-  def parse_questions(html)
-    inputs = html.scan(/<input\b[^>]*>/).filter_map do |tag|
+  # Returns nil on the waiting screen (no question open).
+  def parse_form(html)
+    form = html[%r{<form\b[^>]*action="[^"]*/answers"[^>]*>.*?</form>}m] or return nil
+    inputs = form.scan(/<input\b[^>]*>/)
+    options = inputs.filter_map do |tag|
       type = tag[/type="(radio|checkbox)"/, 1] or next
-      name = tag[/name="(selections\[(\d+)\]\[\])"/, 1] or next
-      {field: name, question_id: name[/\d+/].to_i, option_id: tag[/value="(\d+)"/, 1].to_i, multiple: type == "checkbox"}
+      next unless tag.include?('name="option_ids[]"')
+      [tag[/value="(\d+)"/, 1].to_i, type == "checkbox"]
     end
-    inputs.group_by { |input| input[:question_id] }.map do |question_id, options|
-      Question.new(id: question_id, field: options.first[:field], option_ids: options.map { |o| o[:option_id] }, multiple: options.first[:multiple])
-    end
-  end
+    question_id = inputs.find { |tag| tag.include?('name="question_id"') }.to_s[/value="(\d+)"/, 1]
+    return nil if options.empty? || question_id.nil?
 
-  def authenticity_token(html)
-    html[/name="authenticity_token" value="([^"]+)"/, 1]
+    Form.new(
+      action: form[/action="([^"]+)"/, 1],
+      token: form[/name="authenticity_token" value="([^"]+)"/, 1],
+      question_id: question_id.to_i,
+      option_ids: options.map(&:first),
+      multiple: options.first.last
+    )
   end
 
   # Each question gets a fixed popularity per option, so the room leans the same way
   # a real one does instead of spreading evenly. Weights fall off roughly like 1/rank.
-  def popularity(questions, random)
-    questions.to_h do |question|
-      ranked = question.option_ids.shuffle(random: random)
-      weights = ranked.each_with_index.to_h { |option_id, rank| [option_id, 1.0 / (rank + 1)**1.1 * (0.6 + random.rand)] }
-      [question.id, weights]
+  def popularity(option_ids, random)
+    option_ids.shuffle(random: random).each_with_index.to_h do |option_id, rank|
+      [option_id, 1.0 / (rank + 1)**1.1 * (0.6 + random.rand)]
     end
   end
 
@@ -48,53 +50,29 @@ module VoteSimulator
     weights.keys.last
   end
 
-  def choose_answers(questions, popularity, random, skip_rate:)
-    questions.each_with_object({}) do |question, answers|
-      next if random.rand < skip_rate
-
-      weights = popularity.fetch(question.id).dup
-      picks = question.multiple ? [1, 1, 2, 2, 2, 3, 3, 4].sample(random: random) : 1
-      answers[question.field] = Array.new([picks, weights.size].min) do
-        weighted_pick(weights, random).tap { |picked| weights.delete(picked) }
-      end
-    end
+  # One person's picks for a question: one option, or a few for multiple choice.
+  def pick_options(form, weights, random)
+    remaining = weights.dup
+    count = form.multiple ? [1, 1, 2, 2, 2, 3, 3, 4].sample(random: random) : 1
+    Array.new([count, remaining.size].min) { weighted_pick(remaining, random).tap { |id| remaining.delete(id) } }
   end
 
-  # When people open the page, in seconds from the start. Most scan the QR code as
-  # soon as it's on screen (a burst that tails off), and a few wander in later.
+  # When people open the page, in seconds from the start: a burst when the QR code goes
+  # up that tails off, plus a few who wander in later.
   def arrival_times(count, window:, random:)
     Array.new(count) do
-      if random.rand < 0.85
-        # Exponential with its mean at a fifth of the window: front-loaded.
-        [-Math.log(1 - random.rand) * window / 5.0, window].min
-      else
-        random.rand * window
-      end
+      random.rand < 0.85 ? [-Math.log(1 - random.rand) * window / 5.0, window].min : random.rand * window
     end.sort
   end
 
-  # Seconds spent reading and tapping before submitting: a few seconds per question,
-  # log-normal so most people are quick and a few take their time.
-  def think_time(question_count, random)
-    per_question = Math.exp(Math.log(4.0) + 0.45 * gaussian(random))
-    (question_count * per_question).clamp(question_count * 1.2, question_count * 15.0)
+  # Seconds from a question appearing to the first tap: read it, think, tap. Log-normal
+  # around 5 seconds, so most people are quick and a few take a while.
+  def reaction_time(random)
+    Math.exp(Math.log(5.0) + 0.55 * gaussian(random)).clamp(1.5, 40.0)
   end
 
   def gaussian(random)
     Math.sqrt(-2 * Math.log(1 - random.rand)) * Math.cos(2 * Math::PI * random.rand)
-  end
-
-  def plan(count:, questions:, window:, abandon_rate:, skip_rate:, random:)
-    popular = popularity(questions, random)
-    arrival_times(count, window: window, random: random).each_with_index.map do |opens_at, index|
-      Person.new(
-        number: index + 1,
-        opens_at: opens_at,
-        think_seconds: think_time(questions.size, random),
-        abandons: random.rand < abandon_rate,
-        answers: choose_answers(questions, popular, random, skip_rate: skip_rate)
-      )
-    end
   end
 
   # A phone: keeps its own cookies (the voter token and the session the form token belongs to).
@@ -118,17 +96,23 @@ module VoteSimulator
       response.body
     end
 
-    def submit(slug, token, answers)
-      post = Net::HTTP::Post.new(uri("/#{slug}/ballot"))
-      post.set_form([["authenticity_token", token]] + answers.flat_map { |field, ids| ids.map { |id| [field, id.to_s] } })
+    # Posts the full set of chosen options, as the page's JavaScript does.
+    # Returns :saved, or :too_late when the presenter had already moved on.
+    def answer(form, option_ids)
+      post = Net::HTTP::Post.new(uri(URI(form.action).path))
+      post["Accept"] = "application/json"
+      post.set_form([["authenticity_token", form.token], ["question_id", form.question_id.to_s]] +
+        option_ids.map { |id| ["option_ids[]", id.to_s] })
       response = request(post)
-      raise Failed, "POST /#{slug}/ballot returned #{response.code}" unless response.is_a?(Net::HTTPRedirection) || response.is_a?(Net::HTTPSuccess)
+      return :saved if response.is_a?(Net::HTTPSuccess)
+      return :too_late if response.code == "409"
+      raise Failed, "POST #{form.action} returned #{response.code}"
     end
 
     private
 
     def uri(path)
-      @base_uri.dup.tap { |u| u.path = "#{@base_uri.path.chomp("/")}#{path}" }
+      @base_uri.dup.tap { |u| u.path = path.start_with?(@base_uri.path.chomp("/")) ? path : "#{@base_uri.path.chomp("/")}#{path}" }
     end
 
     def request(http_request)
