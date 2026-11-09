@@ -53,19 +53,43 @@ rescue PollSync::Client::RequestFailed, SocketError, SystemCallError, Net::OpenT
   false
 end
 
-# Polls the file instead of using OS file events, so it needs no gems and survives
+# The slide and sync code, reloaded when it changes so a long-running watcher
+# never rebuilds slides with an old template.
+CODE_PATHS = %w[lib/poll_slides.rb lib/poll_sync.rb].map { |path| File.join(ROOT, path) }.freeze
+
+def digest_of(paths)
+  Digest::SHA256.hexdigest(paths.map { |path| File.exist?(path) ? File.read(path) : "" }.join("\0"))
+end
+
+def reload_code
+  verbose, $VERBOSE = $VERBOSE, nil # reloading redefines constants
+  CODE_PATHS.each { |path| load path }
+ensure
+  $VERBOSE = verbose
+end
+
+# Polls the files instead of using OS file events, so it needs no gems and survives
 # editors that save by replacing the file.
 def watch
-  puts "Watching deck/poll.json. Ctrl-C to stop."
+  puts "Watching deck/poll.json (and the slide code). Ctrl-C to stop."
   last_digest = nil
+  last_code_digest = digest_of(CODE_PATHS)
   loop do
     digest = File.exist?(POLL_PATH) ? Digest::SHA256.file(POLL_PATH).hexdigest : nil
-    if digest && digest != last_digest
+    code_digest = digest_of(CODE_PATHS)
+    if digest && (digest != last_digest || code_digest != last_code_digest)
       sleep 0.3 # let a multi-step save finish
       digest = Digest::SHA256.file(POLL_PATH).hexdigest
-      puts "\n[#{Time.now.strftime("%H:%M:%S")}] deck/poll.json changed" if last_digest
+      code_digest = digest_of(CODE_PATHS)
+      if code_digest != last_code_digest
+        reload_code
+        puts "\n[#{Time.now.strftime("%H:%M:%S")}] slide code changed"
+      elsif last_digest
+        puts "\n[#{Time.now.strftime("%H:%M:%S")}] deck/poll.json changed"
+      end
       rebuild_and_sync("--watch")
       last_digest = digest
+      last_code_digest = code_digest
     end
     sleep 0.5
   end

@@ -102,7 +102,8 @@ function resetPlaceholder(region) {
 }
 
 function buildBarRow() {
-  const row = styled("div", "display:grid;grid-template-columns:480px 1fr 140px;align-items:center;gap:28px")
+  // The rows share the region's columns, so every bar starts where the longest label ends.
+  const row = styled("div", "display:grid;grid-template-columns:subgrid;grid-column:1 / -1;align-items:center")
   const label = styled("p", "font-size:38px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")
   const track = styled("div", `height:36px;background:${COLORS.track};border:4px solid ${COLORS.ink}`)
   const fill = styled("div", `height:100%;width:0%;background:${COLORS.gold};transition:width 700ms steps(14, end)`)
@@ -113,6 +114,7 @@ function buildBarRow() {
 }
 
 function renderRankedBars(region, question) {
+  Object.assign(region.style, { display: "grid", gridTemplateColumns: "fit-content(640px) 1fr 140px", gap: "18px 28px", alignContent: "start" })
   const rankedOptions = [...question.options].sort((first, second) => second.votes - first.votes).slice(0, MAX_RANKED_BARS)
   const topVotes = Math.max(1, ...rankedOptions.map((option) => option.votes))
   const shownOptionIds = new Set()
