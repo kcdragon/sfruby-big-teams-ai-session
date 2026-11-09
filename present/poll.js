@@ -229,11 +229,14 @@ export async function startPoll({ stage, statusElement, params }) {
     if (latestResults && !demoMode) render(stage, latestResults, pollDefinition)
   } catch {}
 
+  let correctLiveQuestion = () => {}
+
   // Results are pushed over the WebSocket whenever a vote comes in or someone joins.
   subscribeToPoll({
     url: socketUrl,
     identifier: { channel: config.pollChannel, slug: pollDefinition.slug },
     onResults(results) {
+      correctLiveQuestion(results)
       latestResults = results
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(results)) } catch {}
       if (!demoMode) render(stage, results, pollDefinition)
@@ -266,12 +269,16 @@ export async function startPoll({ stage, statusElement, params }) {
 
   // Switches every phone to the question on screen. Waits until the slide settles so
   // arrowing quickly through the deck doesn't flip phones through every question.
-  let sentQuestion
+  // It always sends: something else (another window, a test) may have changed the
+  // question since this window last set it.
+  let wantedQuestion
   let switchTimer = null
-  function setLiveQuestion(question) {
+  let lastSentAt = 0
+  function sendLiveQuestion(question) {
     clearTimeout(switchTimer)
-    if (demoMode || question === sentQuestion) return
     switchTimer = setTimeout(async () => {
+      switchTimer = null
+      lastSentAt = Date.now()
       try {
         const response = await fetch("/api/current-question", {
           method: "POST",
@@ -280,12 +287,22 @@ export async function startPoll({ stage, statusElement, params }) {
         })
         const body = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`)
-        sentQuestion = question
         showStatus(liveStatus)
       } catch (error) {
         showStatus(`Phones did not switch to ${question ? `question ${question}` : "waiting"}: ${error.message}`)
       }
     }, 400)
+  }
+  function setLiveQuestion(question) {
+    wantedQuestion = question
+    if (!demoMode) sendLiveQuestion(question)
+  }
+  // The results say which question phones are on. If that drifts from the slide on
+  // screen, put it back (at most every 3 seconds, so two windows can't flood the API).
+  correctLiveQuestion = (results) => {
+    if (demoMode || wantedQuestion === undefined || switchTimer || !("current_question" in results)) return
+    if ((results.current_question ?? null) === wantedQuestion || Date.now() - lastSentAt < 3000) return
+    sendLiveQuestion(wantedQuestion)
   }
 
   return {
