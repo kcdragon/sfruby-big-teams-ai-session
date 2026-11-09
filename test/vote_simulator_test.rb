@@ -16,7 +16,7 @@ class VoteSimulatorTest < Minitest::Test
 
   def test_reads_the_current_question_form
     form = VoteSimulator.parse_form(page("checkbox"))
-    assert_equal ["/sfruby/answers", "abc123", 11, [54, 55, 56], true], [form.action, form.token, form.question_id, form.option_ids, form.multiple]
+    assert_equal ["/sfruby/answers", "abc123", 11, 4, [54, 55, 56], true], [form.action, form.token, form.question_id, form.position, form.option_ids, form.multiple]
     refute VoteSimulator.parse_form(page("radio")).multiple
   end
 

@@ -119,6 +119,7 @@ people = VoteSimulator.arrival_times(count, window: options[:window], random: ra
     end
 
     answered_version = nil
+    answered_question_ids = []
     until finished
       version, position = lock.synchronize { [current[:version], current[:position]] }
       if position.nil? || version == answered_version
@@ -128,8 +129,13 @@ people = VoteSimulator.arrival_times(count, window: options[:window], random: ra
       answered_version = version
 
       # The phone swaps in the new question when it appears; the person reads, then taps.
+      # Trust the page, not our own idea of what's open: the question may have changed
+      # between noticing and loading, and then the page already shows the newer one.
       form = VoteSimulator.parse_form(phone.open_page(slug))
+      answered_version = lock.synchronize { current[:version] }
       next unless form
+      next if answered_question_ids.include?(form.question_id) # back on a question they already answered
+      position = form.position || position
       if person_random.rand < options[:skip_rate]
         log.("person #{number} skipped question #{position}", :skipped)
         next
@@ -142,6 +148,7 @@ people = VoteSimulator.arrival_times(count, window: options[:window], random: ra
         log.("person #{number} answered question #{position} too late", :late)
         next
       end
+      answered_question_ids << form.question_id
       log.("person #{number} answered question #{position}", :answered)
 
       if person_random.rand < options[:change_rate]

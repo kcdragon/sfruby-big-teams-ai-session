@@ -8,7 +8,8 @@ require "uri"
 # quickly, some slowly, a few skip, a few change their mind, some drift away.
 module VoteSimulator
   # The answer form for the current question, read from the phone page.
-  Form = Struct.new(:action, :token, :question_id, :option_ids, :multiple, keyword_init: true)
+  # position is the question's place in the poll, from the page's "Question N of M".
+  Form = Struct.new(:action, :token, :question_id, :position, :option_ids, :multiple, keyword_init: true)
 
   module_function
 
@@ -28,6 +29,7 @@ module VoteSimulator
       action: form[/action="([^"]+)"/, 1],
       token: form[/name="authenticity_token" value="([^"]+)"/, 1],
       question_id: question_id.to_i,
+      position: html[/Question (\d+) of \d+/, 1]&.to_i,
       option_ids: options.map(&:first),
       multiple: options.first.last
     )
