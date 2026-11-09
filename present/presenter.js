@@ -1,5 +1,6 @@
 import { renderIcons } from "./icons.js"
 import { startPoll } from "./poll.js"
+import { setUpGroupTopics } from "./groups.js"
 
 const SLIDE_WIDTH = 1920
 const SLIDE_HEIGHT = 1080
@@ -117,6 +118,7 @@ function startNotesClock() {
 
 function handleKey(event) {
   if (event.metaKey || event.ctrlKey || event.altKey) return
+  if (event.target.isContentEditable) return // typing a group topic
   const key = event.key
   if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(key)) goTo(currentIndex + 1)
   else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(key)) goTo(currentIndex - 1)
@@ -148,6 +150,7 @@ async function start() {
     return
   }
 
+  setUpGroupTopics({ stage, channel })
   fitStage()
   window.addEventListener("resize", fitStage)
   stage.addEventListener("click", () => goTo(currentIndex + 1))

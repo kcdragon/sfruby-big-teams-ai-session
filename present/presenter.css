@@ -45,4 +45,28 @@ body.notes-mode #viewport { display: none; }
 #poll-badge b { font-weight: 400; color: #F2C94C; }
 #poll-badge img { width: 104px; height: 104px; display: block; background: #FBFBF8; }
 
+/* Group map: six tables with chairs, each with a topic typed in during the session. */
+#stage [data-group-table] {
+  position: relative; width: 400px; height: 250px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: #1B2C8F; border: 8px solid #F2C94C; box-shadow: 10px 10px 0 #14182E;
+}
+#stage .group-chair {
+  position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px;
+  background: #E0473A; border: 4px solid #14182E;
+}
+#stage [data-group-number] {
+  position: absolute; left: 6px; top: -14px; width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Press Start 2P', monospace; font-size: 30px; color: #14182E;
+  background: #F2C94C; border: 4px solid #14182E; box-shadow: 4px 4px 0 #14182E; z-index: 1;
+}
+#stage [data-group-topic] {
+  width: 290px; max-height: 150px; overflow: hidden; outline: none; cursor: text;
+  font-size: 44px; line-height: 1.05; text-align: center; color: #FBFBF8;
+  overflow-wrap: normal; word-break: normal; hyphens: none;
+}
+#stage [data-group-topic]:empty::before { content: attr(data-placeholder); color: rgba(251, 251, 248, 0.35); }
+#stage [data-group-topic]:focus { background: rgba(242, 201, 76, 0.18); box-shadow: 0 0 0 4px rgba(242, 201, 76, 0.18); }
+
 [hidden] { display: none !important; }
