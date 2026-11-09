@@ -58,23 +58,6 @@
       "notes": "About 2 minutes. People could pick more than one, so call out how many use several agents. Top 8 answers shown, ranked live."
     },
     {
-      "prompt": "Which one do you use the most?",
-      "allows_multiple": false,
-      "options": [
-        "Claude Code",
-        "Cursor",
-        "GitHub Copilot",
-        "OpenAI Codex",
-        "Gemini CLI",
-        "Windsurf",
-        "Amp",
-        "Devin",
-        "Something else"
-      ],
-      "chart": "bars",
-      "notes": "About 1 to 2 minutes. Compare with the previous slide: which tools do people try versus actually live in? Ask someone who picked a less common tool why."
-    },
-    {
       "prompt": "Where do your agents do their work?",
       "allows_multiple": true,
       "options": [
