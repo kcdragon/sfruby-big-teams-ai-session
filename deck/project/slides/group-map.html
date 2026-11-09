@@ -1,16 +1,17 @@
-<section id="group-map" data-transition="fade" style="background:linear-gradient(180deg, #3D78C2 0%, #79AEE3 100%);color:#14182E;font-family:'Deck Body', Arial, sans-serif;padding:96px 128px 136px;display:flex;flex-direction:column;gap:28px">
+<section id="group-map" data-transition="fade" style="background:linear-gradient(180deg, #3D78C2 0%, #79AEE3 100%);color:#14182E;font-family:'Deck Body', Arial, sans-serif;padding:88px 96px 128px;display:flex;flex-direction:column;gap:32px">
 <div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:#8A93A6;border-top:24px solid #5DBB3A"></div>
 <div style="display:flex;justify-content:space-between;align-items:center;gap:32px">
 <p style="font-family:'Press Start 2P', monospace;font-size:24px;line-height:1.4;background:#F2C94C;color:#14182E;padding:16px 24px;border:4px solid #14182E;box-shadow:6px 6px 0 #14182E">LEVEL 2 · FIND YOUR GROUP · UNTIL 2:15</p>
 <p style="font-size:40px;line-height:1.2;color:#FBFBF8;text-shadow:3px 3px 0 #14182E">Switch groups anytime.</p>
 </div>
-<div data-group-map style="flex:1;display:grid;grid-template-columns:repeat(3, 1fr);grid-template-rows:repeat(2, 1fr);gap:24px 48px;align-items:center;justify-items:center">
+<div data-room style="flex:1;min-height:0;display:flex;background:#B9BFCC;border:8px solid #14182E;box-shadow:12px 12px 0 #14182E">
+<div data-room-stage><p>STAGE</p></div>
+<div data-group-map>
 <div data-group-table="1"><p data-group-number>1</p><p data-group-topic="1" data-placeholder="TOPIC?"></p></div>
 <div data-group-table="2"><p data-group-number>2</p><p data-group-topic="2" data-placeholder="TOPIC?"></p></div>
 <div data-group-table="3"><p data-group-number>3</p><p data-group-topic="3" data-placeholder="TOPIC?"></p></div>
-<div data-group-table="4"><p data-group-number>4</p><p data-group-topic="4" data-placeholder="TOPIC?"></p></div>
-<div data-group-table="5"><p data-group-number>5</p><p data-group-topic="5" data-placeholder="TOPIC?"></p></div>
-<div data-group-table="6"><p data-group-number>6</p><p data-group-topic="6" data-placeholder="TOPIC?"></p></div>
 </div>
-<aside>Leave this up for the rest of Level 2, until 2:15. As each topic is proposed, click a circle and type it (Enter or Esc to finish); topics are saved in this browser. Point to where each numbered group sits in the room so the circles match the real chairs. Each group decides what to discuss. Walk the room and listen. Give a 2-minute warning before 2:15, since Level 3 starts when the last parallel talk does.</aside>
+<div data-room-doors><span data-door></span><p>DOORS</p><span data-door></span></div>
+</div>
+<aside>Leave this up for the rest of Level 2, until 2:15. As each topic is proposed, click a table and type it (Enter or Esc to finish); topics are saved in this browser. The map is the room from the audience's view: stage on the left, doors on the right. Point to where each numbered group sits so the tables match the real chairs. Each group decides what to discuss. Walk the room and listen. Give a 2-minute warning before 2:15, since Level 3 starts when the last parallel talk does.</aside>
 </section>

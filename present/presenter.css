@@ -36,9 +36,30 @@ body.notes-mode #viewport { display: none; }
   font: 600 13px system-ui, sans-serif; color: #fbfbf8; background: rgba(20, 24, 46, 0.85); border-radius: 6px;
 }
 
-/* Group map: six tables with chairs, each with a topic typed in during the session. */
+/* Group map: a floor plan of the room, stage on one side and doors on the other,
+   with three tables whose topics are typed in during the session. */
+#stage [data-room-stage] {
+  flex: none; width: 150px; display: flex; align-items: center; justify-content: center;
+  background: repeating-linear-gradient(180deg, #9A6233 0 36px, #84522A 36px 40px); border-right: 8px solid #14182E;
+}
+#stage [data-room-doors] {
+  flex: none; width: 130px; display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
+  border-left: 8px dashed #14182E;
+}
+#stage [data-room-stage] p, #stage [data-room-doors] p {
+  writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px;
+  font-family: 'Press Start 2P', monospace; font-size: 32px; color: #FBFBF8; text-shadow: 4px 4px 0 #14182E;
+}
+#stage [data-room-doors] p { color: #14182E; text-shadow: none; }
+#stage [data-door] {
+  position: relative; width: 72px; height: 150px; background: #9A6233; border: 6px solid #14182E;
+}
+#stage [data-door]::after {
+  content: ""; position: absolute; left: 8px; top: 64px; width: 12px; height: 12px; background: #F2C94C; border: 3px solid #14182E;
+}
+#stage [data-group-map] { flex: 1; min-width: 0; display: flex; justify-content: space-evenly; align-items: center; }
 #stage [data-group-table] {
-  position: relative; width: 400px; height: 250px;
+  position: relative; width: 350px; height: 320px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%; background: #1B2C8F; border: 8px solid #F2C94C; box-shadow: 10px 10px 0 #14182E;
 }
@@ -47,13 +68,13 @@ body.notes-mode #viewport { display: none; }
   background: #E0473A; border: 4px solid #14182E;
 }
 #stage [data-group-number] {
-  position: absolute; left: 6px; top: -14px; width: 64px; height: 64px;
+  position: absolute; left: 0; top: -14px; width: 64px; height: 64px;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Press Start 2P', monospace; font-size: 30px; color: #14182E;
   background: #F2C94C; border: 4px solid #14182E; box-shadow: 4px 4px 0 #14182E; z-index: 1;
 }
 #stage [data-group-topic] {
-  width: 290px; max-height: 150px; overflow: hidden; outline: none; cursor: text;
+  width: 260px; max-height: 210px; overflow: hidden; outline: none; cursor: text;
   font-size: 44px; line-height: 1.05; text-align: center; color: #FBFBF8;
   overflow-wrap: normal; word-break: normal; hyphens: none;
 }

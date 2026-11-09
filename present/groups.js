@@ -1,4 +1,4 @@
-// The group map slide: six tables, each with a topic the presenter types in during
+// The group map slide: three tables, each with a topic the presenter types in during
 // the session. Topics are saved in this browser and synced to other open deck windows.
 
 const STORAGE_KEY = "big-teams-group-topics"
@@ -12,7 +12,7 @@ function saveTopics(topics) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(topics)) } catch {}
 }
 
-const CHAIR_RING = { x: 236, y: 160 } // half-widths of the oval the chairs sit on
+const CHAIR_RING = { x: 212, y: 198 } // half-widths of the oval the chairs sit on
 const LARGEST_TOPIC = 44
 const SMALLEST_TOPIC = 24
 
