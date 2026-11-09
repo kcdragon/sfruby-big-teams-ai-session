@@ -67,7 +67,7 @@
         "Nobody: tests and CI are the gate"
       ],
       "chart": "columns",
-      "notes": "About 2 minutes. This is the trust question. Ask someone from each end: how did your team decide that, and has it changed since agents started writing more of the code? If review is the new bottleneck, that is a good bridge into the open mic."
+      "notes": "About 2 minutes. This is the trust question. Ask someone from each end: how did your team decide that, and has it changed since agents started writing more of the code? Leads straight into the open mic, where you open with your own code review question."
     }
   ]
 }
