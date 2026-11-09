@@ -61,3 +61,7 @@ body.notes-mode #viewport { display: none; }
 #stage [data-group-topic]:focus { background: rgba(242, 201, 76, 0.18); box-shadow: 0 0 0 4px rgba(242, 201, 76, 0.18); }
 
 [hidden] { display: none !important; }
+
+/* World map: the player hops in place on the current level. */
+#stage .map-hero { animation: map-hop 1.2s steps(1, end) infinite; }
+@keyframes map-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
