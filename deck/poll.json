@@ -3,19 +3,6 @@
   "title": "Big Teams · SF Ruby",
   "questions": [
     {
-      "prompt": "How many engineers work at your company?",
-      "allows_multiple": false,
-      "options": [
-        "1–10",
-        "11–100",
-        "101–1,000",
-        "1,001–10,000",
-        "10,000+"
-      ],
-      "chart": "columns",
-      "notes": "About 2 minutes. Results fill in live as people vote, in order from smallest to largest company. Call out the shape: is this room mostly big companies, or founders preparing for scale? Then: say hi to your neighbors, what does your team build?"
-    },
-    {
       "prompt": "How much of your merged code did an agent write?",
       "allows_multiple": false,
       "options": [
