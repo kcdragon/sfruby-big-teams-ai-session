@@ -45,12 +45,6 @@ class VoteSimulatorTest < Minitest::Test
     assert_operator picks.values.max, :>, picks.values.min * 3
   end
 
-  def test_arrivals_are_front_loaded_and_stay_in_the_window
-    times = VoteSimulator.arrival_times(2000, window: 100, random: Random.new(1))
-    assert times.all? { |t| t.between?(0, 100) }
-    assert_operator times.count { |t| t < 25 }, :>, times.count { |t| t >= 75 } * 4
-  end
-
   def test_most_people_tap_within_ten_seconds
     random = Random.new(5)
     times = Array.new(2000) { VoteSimulator.reaction_time(random) }

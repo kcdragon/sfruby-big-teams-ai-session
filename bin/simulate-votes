@@ -1,30 +1,22 @@
 #!/usr/bin/env ruby
-# Simulates N people on their phones during the live poll. Phones show one question at
-# a time, whichever the presenter has open, so the simulated people answer each question
-# a few seconds after it appears.
+# Simulates N people answering the question that's open right now (the one on the
+# current slide), then stops.
 #
-#   bin/simulate-votes 60                # follow the deck: answer whatever question is open
-#   bin/simulate-votes 60 --drive 20     # no deck needed: open each question for 20s in turn
-#   bin/simulate-votes 60 --window 30    # people arrive over 30s instead of 90s
+#   bin/simulate-votes 30
 #
-# Following the deck, it runs until you stop it (Ctrl-C) or for --minutes. With --drive it
-# opens question 1, 2, ... itself (needs POLLS_API_TOKEN), then closes them and stops.
+# People reach for their phones over the first few seconds, tap a few seconds after
+# reading, and sometimes skip or change their answer. If you move to another slide
+# mid-run, answers still on their way arrive too late and the server refuses them.
 #
-# Real votes land on the real poll (POLLS_API_URL, default https://polls.gamestats.ai).
+# Real answers land on the real poll (POLLS_API_URL, default https://polls.gamestats.ai).
 # Clear them afterwards with bin/poll --reset.
 require "json"
 require "optparse"
 require_relative "../lib/vote_simulator"
-require_relative "../lib/poll_sync"
 
-options = {window: 90.0, drive: nil, minutes: nil, abandon_rate: 0.12, skip_rate: 0.08, change_rate: 0.12, drift_rate: 0.04, seed: nil}
+options = {skip_rate: 0.1, change_rate: 0.12, seed: nil}
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: bin/simulate-votes N [options]"
-  opts.on("--drive SECONDS", Float, "Open each question for this long yourself, instead of following the deck") { |v| options[:drive] = v }
-  opts.on("--window SECONDS", Float, "People arrive over this long (default 90)") { |v| options[:window] = v }
-  opts.on("--minutes M", Float, "Stop after this long when following the deck") { |v| options[:minutes] = v }
-  opts.on("--abandon RATE", Float, "Share who open the page but never answer (default 0.12)") { |v| options[:abandon_rate] = v }
-  opts.on("--skip RATE", Float, "Chance of skipping any one question (default 0.08)") { |v| options[:skip_rate] = v }
+  opts.banner = "Usage: bin/simulate-votes N [--seed N]"
   opts.on("--seed N", Integer, "Random seed, to repeat a run") { |v| options[:seed] = v }
 end
 parser.parse!
@@ -35,132 +27,51 @@ unless count&.positive? && ARGV.empty?
 end
 
 $stdout.sync = true
-root = File.expand_path("..", __dir__)
-definition = JSON.parse(File.read(File.join(root, "deck/poll.json")))
-slug = definition.fetch("slug")
-question_total = definition.fetch("questions").size
+slug = JSON.parse(File.read(File.expand_path("../deck/poll.json", __dir__))).fetch("slug")
 base_url = ENV.fetch("POLLS_API_URL", "https://polls.gamestats.ai")
 seed = options[:seed] || Random.new_seed % 100_000
 random = Random.new(seed)
 
-api = nil
-if options[:drive]
-  token = ENV["POLLS_API_TOKEN"].to_s
-  abort "--drive opens questions through the API, so it needs POLLS_API_TOKEN." if token.empty?
-  api = PollSync::Client.new(base_url: base_url, token: token)
-end
+form = VoteSimulator.parse_form(VoteSimulator::Phone.new(base_url, random).open_page(slug))
+abort "No question is open right now. Go to a poll slide in the deck, then run this again." unless form
+weights = VoteSimulator.popularity(form.option_ids, random)
+label = form.position ? "question #{form.position}" : "the open question"
+puts "#{count} people answering #{label} on #{base_url}/#{slug} (seed #{seed}). bin/poll --reset clears them afterwards.\n\n"
 
 started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-elapsed = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) - started }
-stamp = ->(seconds) { format("%02d:%02d", seconds.to_i / 60, seconds.to_i % 60) }
+stamp = -> { format("%05.1fs", Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) }
 lock = Mutex.new
 tally = Hash.new(0)
-log = ->(message, key = nil) { lock.synchronize { tally[key] += 1 if key; puts "#{stamp.(elapsed.())}  #{message}" } }
+log = ->(message, key) { lock.synchronize { tally[key] += 1; puts "#{stamp.()}  #{message}" } }
 
-# What the room is looking at: the open question's position, and a counter that goes up
-# every time it changes, so each person answers each opening once.
-current = {position: nil, version: 0}
-popularity = {}
-set_current = lambda do |position|
-  lock.synchronize do
-    next if current[:position] == position
-    current[:position] = position
-    current[:version] += 1
-  end
-end
-finished = false
-
-puts "#{count} people, arrivals over #{options[:window].round}s, seed #{seed}. " +
-  (options[:drive] ? "Driving: each question open for #{options[:drive].round}s." : "Following whatever question the deck opens.")
-puts "Sending real answers to #{base_url}/#{slug}. Ctrl-C stops; bin/poll --reset clears them afterwards.\n\n"
-
-# The presenter side: either drive the questions ourselves or watch what the deck sets.
-presenter = Thread.new do
-  if options[:drive]
-    (1..question_total).each do |position|
-      api.set_current_question(slug, position)
-      set_current.(position)
-      log.("── question #{position} of #{question_total} is open")
-      sleep options[:drive]
-    end
-    api.set_current_question(slug, nil)
-    set_current.(nil)
-    log.("── questions closed")
-    sleep 2
-    finished = true
-  else
-    watcher = VoteSimulator::Phone.new(base_url, random)
-    loop do
-      results = JSON.parse(watcher.open_page("#{slug}/results.json")) rescue nil
-      if results && results["current_question"] != current[:position]
-        set_current.(results["current_question"])
-        log.(results["current_question"] ? "── the deck opened question #{results["current_question"]}" : "── the deck closed the questions")
-      end
-      finished = true if options[:minutes] && elapsed.() > options[:minutes] * 60
-      sleep 1
-    end
-  end
-rescue PollSync::Client::RequestFailed => error
-  log.("could not open a question: #{error.message}")
-  finished = true
-end
-
-people = VoteSimulator.arrival_times(count, window: options[:window], random: random).each_with_index.map do |opens_at, index|
+people = Array.new(count) do |index|
   number = index + 1
   person_random = Random.new(random.rand(1 << 30))
   Thread.new do
+    # Getting the phone out and the page open takes a moment, longer for some.
+    sleep person_random.rand * 4
     phone = VoteSimulator::Phone.new(base_url, person_random)
-    sleep opens_at
-    phone.open_page(slug)
-    log.("person #{number} opened the page", :opened)
-    if person_random.rand < options[:abandon_rate]
-      log.("person #{number} put their phone away without answering", :abandoned)
+    page_form = VoteSimulator.parse_form(phone.open_page(slug))
+    if page_form.nil? || page_form.question_id != form.question_id
+      log.("person #{number} found a different question open and stopped", :moved_on)
+      next
+    end
+    if person_random.rand < options[:skip_rate]
+      log.("person #{number} skipped it", :skipped)
       next
     end
 
-    answered_version = nil
-    answered_question_ids = []
-    until finished
-      version, position = lock.synchronize { [current[:version], current[:position]] }
-      if position.nil? || version == answered_version
-        sleep 0.25
-        next
-      end
-      answered_version = version
+    sleep VoteSimulator.reaction_time(person_random)
+    if phone.answer(page_form, VoteSimulator.pick_options(page_form, weights, person_random)) == :too_late
+      log.("person #{number} answered too late, the question had closed", :late)
+      next
+    end
+    log.("person #{number} answered", :answered)
 
-      # The phone swaps in the new question when it appears; the person reads, then taps.
-      # Trust the page, not our own idea of what's open: the question may have changed
-      # between noticing and loading, and then the page already shows the newer one.
-      form = VoteSimulator.parse_form(phone.open_page(slug))
-      answered_version = lock.synchronize { current[:version] }
-      next unless form
-      next if answered_question_ids.include?(form.question_id) # back on a question they already answered
-      position = form.position || position
-      if person_random.rand < options[:skip_rate]
-        log.("person #{number} skipped question #{position}", :skipped)
-        next
-      end
-      sleep VoteSimulator.reaction_time(person_random)
-
-      weights = lock.synchronize { popularity[form.question_id] ||= VoteSimulator.popularity(form.option_ids, person_random) }
-      choice = VoteSimulator.pick_options(form, weights, person_random)
-      if phone.answer(form, choice) == :too_late
-        log.("person #{number} answered question #{position} too late", :late)
-        next
-      end
-      answered_question_ids << form.question_id
-      log.("person #{number} answered question #{position}", :answered)
-
-      if person_random.rand < options[:change_rate]
-        sleep 2 + person_random.rand * 6
-        changed = VoteSimulator.pick_options(form, weights, person_random)
-        log.("person #{number} changed their answer to question #{position}", :changed) if phone.answer(form, changed) == :saved
-      end
-
-      if person_random.rand < options[:drift_rate]
-        log.("person #{number} stopped paying attention", :drifted)
-        break
-      end
+    if person_random.rand < options[:change_rate]
+      sleep 2 + person_random.rand * 6
+      changed = phone.answer(page_form, VoteSimulator.pick_options(page_form, weights, person_random))
+      log.("person #{number} changed their answer", :changed) if changed == :saved
     end
   rescue VoteSimulator::Phone::Failed, SystemCallError, SocketError, Net::OpenTimeout, Net::ReadTimeout => error
     log.("person #{number} failed: #{error.message}", :failed)
@@ -168,13 +79,10 @@ people = VoteSimulator.arrival_times(count, window: options[:window], random: ra
 end
 
 begin
-  sleep 0.5 until finished
+  people.each(&:join)
 rescue Interrupt
-  puts "\nStopping."
+  people.each(&:kill)
+  puts "\nStopped early."
 end
-finished = true
-people.each { |thread| thread.join(5) || thread.kill }
-presenter.kill
-puts "\nOpened #{tally[:opened]}, answers #{tally[:answered]}, changed #{tally[:changed]}, skipped #{tally[:skipped]}, " \
-  "too late #{tally[:late]}, never answered #{tally[:abandoned]}, drifted off #{tally[:drifted]}, failed #{tally[:failed]}. " \
-  "bin/poll --reset clears them."
+puts "\nAnswered #{tally[:answered]}, changed #{tally[:changed]}, skipped #{tally[:skipped]}, too late #{tally[:late]}, " \
+  "moved on #{tally[:moved_on]}, failed #{tally[:failed]}."

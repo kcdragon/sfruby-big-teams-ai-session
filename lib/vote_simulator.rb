@@ -2,10 +2,8 @@ require "json"
 require "net/http"
 require "uri"
 
-# Simulates a room of phones on the live poll. Phones show one question at a time,
-# whichever the presenter has open. Each simulated person opens the page at some point,
-# then answers each question a few seconds after it appears, the way people do: most
-# quickly, some slowly, a few skip, a few change their mind, some drift away.
+# Simulates phones answering the poll's open question: each one opens the page, reads,
+# and taps a few seconds later, the way people do: most quickly, some slowly.
 module VoteSimulator
   # The answer form for the current question, read from the phone page.
   # position is the question's place in the poll, from the page's "Question N of M".
@@ -57,14 +55,6 @@ module VoteSimulator
     remaining = weights.dup
     count = form.multiple ? [1, 1, 2, 2, 2, 3, 3, 4].sample(random: random) : 1
     Array.new([count, remaining.size].min) { weighted_pick(remaining, random).tap { |id| remaining.delete(id) } }
-  end
-
-  # When people open the page, in seconds from the start: a burst when the QR code goes
-  # up that tails off, plus a few who wander in later.
-  def arrival_times(count, window:, random:)
-    Array.new(count) do
-      random.rand < 0.85 ? [-Math.log(1 - random.rand) * window / 5.0, window].min : random.rand * window
-    end.sort
   end
 
   # Seconds from a question appearing to the first tap: read it, think, tap. Log-normal
