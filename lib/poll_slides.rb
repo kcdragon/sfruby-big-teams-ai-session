@@ -74,7 +74,7 @@ module PollSlides
     body = chart == "cards" ? cards_html(question, number) : results_html(question, number, chart)
     <<~HTML
       #{GENERATED_MARKER}
-      <section id="#{slide_id}" data-show-poll-badge data-transition="fade" style="background:linear-gradient(180deg, #3D78C2 0%, #79AEE3 100%);color:#14182E;font-family:'Deck Body', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+      <section id="#{slide_id}" data-transition="fade" style="background:linear-gradient(180deg, #3D78C2 0%, #79AEE3 100%);color:#14182E;font-family:'Deck Body', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
       <div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:#8A93A6;border-top:24px solid #5DBB3A"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:32px">
       <p style="font-family:'Press Start 2P', monospace;font-size:24px;line-height:1.4;background:#F2C94C;color:#14182E;padding:16px 24px;border:4px solid #14182E;box-shadow:6px 6px 0 #14182E">LEVEL 1 · LIVE POLL · #{number} OF #{total}</p>
@@ -96,11 +96,23 @@ module PollSlides
   def results_html(question, number, chart)
     placeholder = %(<p style="font-size:36px">Live results appear here when the presenter reaches the poll server.</p>)
     region = if chart == "columns"
-      %(<div data-poll="results" data-poll-question="#{number}" data-poll-chart="columns" style="flex:1;display:flex;align-items:flex-end;gap:32px;background:#1B2C8F;color:#FBFBF8;border:6px solid #F2C94C;box-shadow:10px 10px 0 #14182E;padding:32px 40px">)
+      %(<div data-poll="results" data-poll-question="#{number}" data-poll-chart="columns" style="flex:1;min-width:0;align-self:stretch;display:flex;align-items:flex-end;gap:32px;background:#1B2C8F;color:#FBFBF8;border:6px solid #F2C94C;box-shadow:10px 10px 0 #14182E;padding:32px 40px">)
     else
-      %(<div data-poll="results" data-poll-question="#{number}" style="display:flex;flex-direction:column;gap:18px;background:#1B2C8F;color:#FBFBF8;border:6px solid #F2C94C;box-shadow:10px 10px 0 #14182E;padding:32px 40px">)
+      %(<div data-poll="results" data-poll-question="#{number}" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:18px;background:#1B2C8F;color:#FBFBF8;border:6px solid #F2C94C;box-shadow:10px 10px 0 #14182E;padding:32px 40px">)
     end
-    [heading_html(question.fetch("prompt"), number, live_prompt: true, chart: chart), region, placeholder, "</div>"].join("\n") + "\n"
+    row = %(<div style="flex:1;min-height:0;display:flex;gap:40px;align-items:flex-start">)
+    [heading_html(question.fetch("prompt"), number, live_prompt: true, chart: chart), row, region, placeholder, "</div>", join_panel_html, "</div>"].join("\n") + "\n"
+  end
+
+  # The QR beside the results, so people who walk in late can still join.
+  def join_panel_html
+    <<~HTML.chomp
+      <div style="flex:none;width:420px;display:flex;flex-direction:column;align-items:center;gap:20px;background:#1B2C8F;border:6px solid #F2C94C;box-shadow:10px 10px 0 #14182E;padding:24px">
+      <p style="font-family:'Press Start 2P', monospace;font-size:24px;line-height:1.4;color:#FBFBF8">SCAN TO JOIN</p>
+      <img src="../deck/project/assets/poll-qr.svg" alt="QR code for polls.gamestats.ai/sfruby" style="width:360px;height:360px;display:block;background:#FBFBF8;padding:12px">
+      <p style="font-family:'Press Start 2P', monospace;font-size:14px;line-height:1.4;color:#F2C94C">POLLS.GAMESTATS.AI/SFRUBY</p>
+      </div>
+    HTML
   end
 
   def cards_html(question, number)
@@ -115,6 +127,6 @@ module PollSlides
       HTML
     end
     heading = heading_html(question["heading"] || question.fetch("prompt"), number, live_prompt: !question["heading"], chart: "cards")
-    [heading, %(<div style="flex:1"></div>), %(<div style="display:flex;gap:40px">), *cards, "</div>"].join("\n") + "\n"
+    [heading, %(<div style="flex:1"></div>), %(<div style="display:flex;gap:40px">), *cards, join_panel_html, "</div>"].join("\n") + "\n"
   end
 end
