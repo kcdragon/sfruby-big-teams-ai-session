@@ -55,7 +55,19 @@
         "Not using agents yet"
       ],
       "chart": "bars",
-      "notes": "About 2 minutes. Editor and terminal use is common; background agents and agents in code review or CI are where big teams start to differ. A good bridge into the open mic."
+      "notes": "About 2 minutes. Editor and terminal use is common; background agents and agents in code review or CI are where big teams start to differ."
+    },
+    {
+      "prompt": "Who has to approve agent-written code before it ships?",
+      "allows_multiple": false,
+      "options": [
+        "A human reviews every line",
+        "A human skims, AI reviews in depth",
+        "AI reviews, humans spot-check",
+        "Nobody: tests and CI are the gate"
+      ],
+      "chart": "columns",
+      "notes": "About 2 minutes. This is the trust question. Ask someone from each end: how did your team decide that, and has it changed since agents started writing more of the code? If review is the new bottleneck, that is a good bridge into the open mic."
     }
   ]
 }
