@@ -78,7 +78,7 @@ module PollSlides
       <div style="position:absolute;left:0;right:0;bottom:0;height:88px;background:#8A93A6;border-top:24px solid #5DBB3A"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:32px">
       <p style="font-family:'Press Start 2P', monospace;font-size:24px;line-height:1.4;background:#F2C94C;color:#14182E;padding:16px 24px;border:4px solid #14182E;box-shadow:6px 6px 0 #14182E">LEVEL 1 · LIVE POLL · #{number} OF #{total}</p>
-      <p data-poll="voters" style="font-family:'Press Start 2P', monospace;font-size:24px;line-height:1.4;background:#1B2C8F;color:#F2C94C;padding:16px 24px;border:4px solid #14182E;box-shadow:6px 6px 0 #14182E">0 PLAYERS HAVE VOTED</p>
+      <p data-poll="voters" data-poll-question="#{number}" style="font-family:'Press Start 2P', monospace;font-size:24px;line-height:1.4;background:#1B2C8F;color:#F2C94C;padding:16px 24px;border:4px solid #14182E;box-shadow:6px 6px 0 #14182E">0 PLAYERS HAVE ANSWERED</p>
       </div>
       #{body.chomp}
       <aside>#{h(question["notes"])}</aside>

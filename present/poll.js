@@ -20,6 +20,7 @@ function buildDemoSource(pollDefinition) {
       questions: pollDefinition.questions.map((question, questionIndex) => ({
         id: questionIndex + 1,
         prompt: question.prompt,
+        allows_multiple: Boolean(question.allows_multiple),
         options: question.options.map((label, optionIndex) => {
           const key = `${questionIndex + 1}:${optionIndex + 1}`
           if (!weights.has(key)) weights.set(key, 0.15 + Math.random() * 0.6)
@@ -72,6 +73,21 @@ function optionsInPositionOrder(question) {
 function questionFor(element, questions) {
   const questionNumber = Number(element.dataset.pollQuestion)
   return questionNumber ? questions[questionNumber - 1] : undefined
+}
+
+function playersText(count, verb) {
+  return `${count} ${count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} ${verb}`
+}
+
+// People who answered this question. Phones answer one question at a time, so the
+// poll-wide voter_count is the wrong number for a single question's slide. For single
+// choice, people = votes. For multiple choice one person can cast several votes, so it
+// needs the server's per-question voter_count; until that exists, show the vote total.
+function questionVoterText(question) {
+  if (Number.isInteger(question.voter_count)) return playersText(question.voter_count, "ANSWERED")
+  const votes = totalVotes(question)
+  if (!question.allows_multiple) return playersText(votes, "ANSWERED")
+  return `${votes} ${votes === 1 ? "VOTE" : "VOTES"}`
 }
 
 function totalVotes(question) {
@@ -163,8 +179,10 @@ function renderOptionCount(element, question) {
 
 function render(stage, unorderedResults, pollDefinition) {
   const results = withDeckOrder(unorderedResults, pollDefinition)
-  const voterText = `${results.voter_count} ${results.voter_count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} VOTED`
-  stage.querySelectorAll('[data-poll="voters"]').forEach((element) => { element.textContent = voterText })
+  stage.querySelectorAll('[data-poll="voters"]').forEach((element) => {
+    const question = questionFor(element, results.questions)
+    element.textContent = question ? questionVoterText(question) : playersText(results.voter_count, "VOTED")
+  })
   if (Number.isInteger(results.joined_count)) {
     const joinedText = `${results.joined_count} ${results.joined_count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} JOINED`
     stage.querySelectorAll('[data-poll="joined"]').forEach((element) => { element.textContent = joinedText })
