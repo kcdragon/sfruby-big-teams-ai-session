@@ -2,7 +2,7 @@
 //
 //   <div data-level-timer="13:45"></div>   counts down to 1:45pm today
 //
-// The last two minutes turn red and blink; at zero it flashes TIME UP!
+// Shows whole minutes left. The last two minutes turn red; at zero it flashes TIME UP!
 // For rehearsals, ?clock=13:40 starts the deck's clock at 1:40pm and lets it run.
 
 const HURRY_UP_SECONDS = 120
@@ -43,8 +43,9 @@ export function setUpLevelTimers({ stage, params }) {
       if (timeUp) {
         digits.textContent = "TIME UP!"
       } else {
-        const minutes = Math.floor(secondsLeft / 60)
-        digits.textContent = minutes > 99 ? "--:--" : `${String(minutes).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`
+        // Whole minutes only, rounded up (4:01 left reads 5 MIN), so it changes once a minute.
+        const minutes = Math.ceil(secondsLeft / 60)
+        digits.textContent = minutes > 99 ? "-- MIN" : `${minutes} MIN`
       }
     }
   }

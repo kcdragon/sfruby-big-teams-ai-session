@@ -120,7 +120,7 @@ body.notes-mode #viewport { display: none; }
 #stage .level-timer-label { font-size: 22px; color: #FBFBF8; letter-spacing: 4px; }
 #stage .level-timer-digits { font-size: 56px; line-height: 1; color: #F2C94C; }
 #stage [data-level-timer].is-hurry { border-color: #E0473A; }
-#stage [data-level-timer].is-hurry .level-timer-digits { color: #E0473A; animation: level-timer-blink 1s steps(1, end) infinite; }
+#stage [data-level-timer].is-hurry .level-timer-digits { color: #E0473A; }
 #stage [data-level-timer].is-up { background: #E0473A; border-color: #14182E; animation: level-timer-blink 0.6s steps(1, end) infinite; }
 #stage [data-level-timer].is-up .level-timer-label { display: none; }
 #stage [data-level-timer].is-up .level-timer-digits { color: #FBFBF8; font-size: 44px; }
