@@ -1,6 +1,7 @@
 import { renderIcons } from "./icons.js"
 import { startPoll } from "./poll.js"
 import { setUpGroupTopics } from "./groups.js"
+import { setUpLevelTimers } from "./level-timer.js"
 
 const SLIDE_WIDTH = 1920
 const SLIDE_HEIGHT = 1080
@@ -140,6 +141,7 @@ async function start() {
   }
 
   setUpGroupTopics({ stage, channel })
+  setUpLevelTimers({ stage, params })
   fitStage()
   window.addEventListener("resize", fitStage)
   stage.addEventListener("click", () => goTo(currentIndex + 1))
