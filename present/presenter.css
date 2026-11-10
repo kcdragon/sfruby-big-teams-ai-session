@@ -111,21 +111,6 @@ body.notes-mode #viewport { display: none; }
 #stage .poll-count-bump { animation: poll-count-bump 300ms steps(1, end); }
 @keyframes poll-count-bump { 0% { transform: translateY(-6px); } 50% { transform: translateY(-3px); } 100% { transform: none; } }
 
-/* Level timer: a game-style TIME countdown to the end of the level. */
-#stage [data-level-timer] {
-  display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 320px;
-  padding: 16px 28px 20px; background: #14182E; border: 6px solid #F2C94C; box-shadow: 8px 8px 0 rgba(20, 24, 46, 0.5);
-  font-family: 'Press Start 2P', monospace; text-align: center;
-}
-#stage .level-timer-label { font-size: 22px; color: #FBFBF8; letter-spacing: 4px; }
-#stage .level-timer-digits { font-size: 56px; line-height: 1; color: #F2C94C; }
-#stage [data-level-timer].is-hurry { border-color: #E0473A; }
-#stage [data-level-timer].is-hurry .level-timer-digits { color: #E0473A; }
-#stage [data-level-timer].is-up { background: #E0473A; border-color: #14182E; animation: level-timer-blink 0.6s steps(1, end) infinite; }
-#stage [data-level-timer].is-up .level-timer-label { display: none; }
-#stage [data-level-timer].is-up .level-timer-digits { color: #FBFBF8; font-size: 44px; }
-@keyframes level-timer-blink { 50% { opacity: 0.35; } }
-
 [hidden] { display: none !important; }
 
 /* World map: the player hops in place on the current level. */
