@@ -102,6 +102,12 @@ body.notes-mode #viewport { display: none; }
   84%  { opacity: 1; transform: translateY(-64px) scaleX(0.5); }
   100% { opacity: 0; transform: translateY(-56px) scaleX(1); }
 }
+/* The coin beside the answered counter on poll slides. */
+#stage .coin-icon {
+  position: relative; flex: none; width: 36px; height: 46px;
+  background: #F2C94C; border: 4px solid #14182E; box-shadow: inset 5px 0 0 #FFE9A0, inset -5px 0 0 #C9962A;
+}
+#stage .coin-icon::after { content: ""; position: absolute; left: 11px; top: 8px; width: 6px; height: 22px; background: #C9962A; }
 #stage .poll-count-bump { animation: poll-count-bump 300ms steps(1, end); }
 @keyframes poll-count-bump { 0% { transform: translateY(-6px); } 50% { transform: translateY(-3px); } 100% { transform: none; } }
 

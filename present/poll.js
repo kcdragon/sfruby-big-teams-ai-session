@@ -47,7 +47,7 @@ function resolveSocketUrl(configuredUrl, params) {
 const MAX_COINS_PER_BUMP = 3
 
 function countIn(element) {
-  const match = element.textContent.match(/^\s*(\d+)/)
+  const match = element.textContent.match(/(\d+)/)
   return match ? Number(match[1]) : null
 }
 
@@ -122,11 +122,15 @@ function playersText(count, verb) {
 // poll-wide voter_count is the wrong number for a single question's slide. For single
 // choice, people = votes. For multiple choice one person can cast several votes, so it
 // needs the server's per-question voter_count; until that exists, show the vote total.
-function questionVoterText(question) {
-  if (Number.isInteger(question.voter_count)) return playersText(question.voter_count, "ANSWERED")
-  const votes = totalVotes(question)
-  if (!question.allows_multiple) return playersText(votes, "ANSWERED")
-  return `${votes} ${votes === 1 ? "VOTE" : "VOTES"}`
+// How many people answered a question. Older servers have no per-question count, and
+// for a single-choice question the vote total is the same thing.
+function questionVoterCount(question) {
+  return Number.isInteger(question.voter_count) ? question.voter_count : totalVotes(question)
+}
+
+// The coin counter on poll slides: "× 07", like a platformer's coin count.
+function coinCounterText(count) {
+  return `× ${String(count).padStart(2, "0")}`
 }
 
 function totalVotes(question) {
@@ -224,7 +228,9 @@ function render(stage, unorderedResults, pollDefinition) {
   const results = withDeckOrder(unorderedResults, pollDefinition)
   stage.querySelectorAll('[data-poll="voters"]').forEach((element) => {
     const question = questionFor(element, results.questions)
-    element.textContent = question ? questionVoterText(question) : playersText(results.voter_count, "VOTED")
+    const coinCount = element.querySelector("[data-poll-coin-count]")
+    if (coinCount) coinCount.textContent = coinCounterText(question ? questionVoterCount(question) : results.voter_count)
+    else element.textContent = playersText(question ? questionVoterCount(question) : results.voter_count, question ? "ANSWERED" : "VOTED")
   })
   if (Number.isInteger(results.joined_count)) {
     const joinedText = `${results.joined_count} ${results.joined_count === 1 ? "PLAYER HAS" : "PLAYERS HAVE"} JOINED`
