@@ -42,6 +42,45 @@ function resolveSocketUrl(configuredUrl, params) {
   return override.toString()
 }
 
+// A pixel coin pops out of a count each time it goes up, like collecting one in a
+// platformer. Only on the slide that's showing, and only for increases.
+const MAX_COINS_PER_BUMP = 3
+
+function countIn(element) {
+  const match = element.textContent.match(/^\s*(\d+)/)
+  return match ? Number(match[1]) : null
+}
+
+function collectCoins(element) {
+  const count = countIn(element)
+  const previous = element.pollCount
+  element.pollCount = count
+  if (count === null || previous === undefined || previous === null || count <= previous) return
+  const slide = element.closest("section")
+  if (!slide?.classList.contains("is-current")) return
+
+  const scale = slide.getBoundingClientRect().width / slide.offsetWidth || 1
+  const slideBox = slide.getBoundingClientRect()
+  const text = document.createRange()
+  text.selectNodeContents(element) // the number's own box, not the (maybe wider) element's
+  const box = text.getBoundingClientRect()
+  const x = (box.left + box.width / 2 - slideBox.left) / scale
+  const y = (box.top - slideBox.top) / scale - 52 // just above the number, so it stays readable
+  const coins = Math.min(count - previous, MAX_COINS_PER_BUMP)
+  for (let index = 0; index < coins; index++) {
+    const coin = document.createElement("span")
+    coin.className = "poll-coin"
+    coin.style.left = `${x + (index - (coins - 1) / 2) * 36}px`
+    coin.style.top = `${y}px`
+    coin.style.animationDelay = `${index * 140}ms`
+    coin.addEventListener("animationend", () => coin.remove())
+    slide.append(coin)
+  }
+  element.classList.remove("poll-count-bump")
+  void element.offsetWidth // restart the bump animation
+  element.classList.add("poll-count-bump")
+}
+
 function styled(tagName, style, text) {
   const element = document.createElement(tagName)
   element.setAttribute("style", style)
@@ -108,6 +147,7 @@ function buildBarRow() {
   const track = styled("div", `height:36px;background:${COLORS.track};border:4px solid ${COLORS.ink}`)
   const fill = styled("div", `height:100%;width:0%;background:${COLORS.gold};transition:width 700ms steps(14, end)`)
   const count = styled("p", `font-family:${DISPLAY_FONT};font-size:30px;color:${COLORS.gold};text-align:right`)
+  count.dataset.pollVoteCount = ""
   track.append(fill)
   row.append(label, track, count)
   return { row, label, count, fill }
@@ -141,6 +181,7 @@ function renderRankedBars(region, question) {
 function buildColumn() {
   const column = styled("div", "flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:12px")
   const count = styled("p", `font-family:${DISPLAY_FONT};font-size:30px;color:${COLORS.gold}`)
+  count.dataset.pollVoteCount = ""
   const bar = styled("div", `width:70%;height:0px;background:${COLORS.gold};border:4px solid ${COLORS.ink};transition:height 700ms steps(14, end)`)
   const label = styled("p", "font-size:34px;font-weight:700;line-height:1.15;text-align:center;min-height:80px")
   column.append(count, bar, label)
@@ -207,6 +248,8 @@ function render(stage, unorderedResults, pollDefinition) {
     const question = questionFor(element, results.questions)
     if (question) renderOptionCount(element, question)
   })
+
+  stage.querySelectorAll('[data-poll="voters"], [data-poll="joined"], [data-poll="count"], [data-poll-vote-count]').forEach(collectCoins)
 }
 
 export async function startPoll({ stage, statusElement, params }) {

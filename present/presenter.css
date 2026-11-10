@@ -81,6 +81,30 @@ body.notes-mode #viewport { display: none; }
 #stage [data-group-topic]:empty::before { content: attr(data-placeholder); color: rgba(251, 251, 248, 0.35); }
 #stage [data-group-topic]:focus { background: rgba(242, 201, 76, 0.18); box-shadow: 0 0 0 4px rgba(242, 201, 76, 0.18); }
 
+/* Coin pickup when a poll count goes up: a pixel coin hops up, spins and vanishes. */
+#stage .poll-coin {
+  position: absolute; z-index: 5; width: 36px; height: 44px; margin-left: -18px; pointer-events: none;
+  background: #F2C94C; border: 4px solid #14182E;
+  box-shadow: inset 6px 0 0 #FFE9A0, inset -6px 0 0 #C9962A;
+  opacity: 0; animation: poll-coin 760ms steps(1, end) both;
+}
+#stage .poll-coin::after {
+  content: ""; position: absolute; left: 11px; top: 8px; width: 6px; height: 20px; background: #C9962A;
+}
+@keyframes poll-coin {
+  0%   { opacity: 1; transform: translateY(0) scaleX(1); }
+  12%  { transform: translateY(-36px) scaleX(0.5); }
+  24%  { transform: translateY(-64px) scaleX(0.15); }
+  36%  { transform: translateY(-84px) scaleX(0.5); }
+  48%  { transform: translateY(-96px) scaleX(1); }
+  60%  { transform: translateY(-92px) scaleX(0.5); }
+  72%  { transform: translateY(-80px) scaleX(0.15); }
+  84%  { opacity: 1; transform: translateY(-64px) scaleX(0.5); }
+  100% { opacity: 0; transform: translateY(-56px) scaleX(1); }
+}
+#stage .poll-count-bump { animation: poll-count-bump 300ms steps(1, end); }
+@keyframes poll-count-bump { 0% { transform: translateY(-6px); } 50% { transform: translateY(-3px); } 100% { transform: none; } }
+
 [hidden] { display: none !important; }
 
 /* World map: the player hops in place on the current level. */
