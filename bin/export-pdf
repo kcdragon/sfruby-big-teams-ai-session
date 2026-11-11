@@ -1,0 +1,113 @@
+#!/usr/bin/env node
+// Exports the deck to a PDF, one 1920x1080 page per slide, exactly as the presenter shows it.
+//
+//   bin/export-pdf                 # poll slides show the live results
+//   bin/export-pdf --demo          # poll slides show sample results instead
+//   bin/export-pdf -o deck.pdf     # default: exports/big-teams-deck.pdf
+//
+// It serves the deck on its own port, where /api/current-question does nothing, so the
+// export never switches the question on anyone's phone. Needs Node 22+ and Google Chrome.
+import { spawn } from "node:child_process"
+import { createServer } from "node:http"
+import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { dirname, extname, join, normalize, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
+const args = process.argv.slice(2)
+const demo = args.includes("--demo")
+const outputFlag = args.findIndex((arg) => arg === "-o" || arg === "--output")
+const output = resolve(outputFlag >= 0 ? args[outputFlag + 1] : join(root, "exports/big-teams-deck.pdf"))
+const chromePath = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
+
+// The deck's files, plus a do-nothing stand-in for the presenter's phone-switching call.
+const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
+  ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2" }
+const server = createServer(async (request, response) => {
+  const path = decodeURIComponent(new URL(request.url, "http://x").pathname)
+  if (path === "/api/current-question") return response.writeHead(200, { "Content-Type": "application/json" }).end("{}")
+  const file = normalize(join(root, path.endsWith("/") ? `${path}index.html` : path))
+  if (!file.startsWith(root)) return response.writeHead(403).end()
+  try {
+    const body = await readFile(file)
+    response.writeHead(200, { "Content-Type": TYPES[extname(file)] ?? "application/octet-stream" }).end(body)
+  } catch {
+    response.writeHead(404).end()
+  }
+})
+await new Promise((done) => server.listen(0, "127.0.0.1", done))
+const deckUrl = `http://localhost:${server.address().port}/present/${demo ? "?demo" : ""}#slide-1`
+
+// Chrome, driven over the DevTools protocol so the export can wait for fonts and live results.
+const profile = await mkdtemp(join(tmpdir(), "deck-export-"))
+const chrome = spawn(chromePath, ["--headless=new", "--hide-scrollbars", "--no-first-run", "--remote-debugging-port=0",
+  `--user-data-dir=${profile}`, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] })
+const devtoolsUrl = await new Promise((done, fail) => {
+  let log = ""
+  chrome.stderr.on("data", (chunk) => {
+    log += chunk
+    const match = log.match(/DevTools listening on (ws:\/\/\S+)/)
+    if (match) done(match[1])
+  })
+  chrome.on("exit", () => fail(new Error(`Chrome exited before starting. Is it at ${chromePath}? Set CHROME.`)))
+})
+const targets = await fetch(`http://${new URL(devtoolsUrl).host}/json/list`).then((r) => r.json())
+const socket = new WebSocket(targets.find((target) => target.type === "page").webSocketDebuggerUrl)
+await new Promise((done) => socket.addEventListener("open", done, { once: true }))
+let nextId = 0
+const pending = new Map()
+socket.addEventListener("message", ({ data }) => {
+  const message = JSON.parse(data)
+  if (!pending.has(message.id)) return
+  const { done, fail } = pending.get(message.id)
+  pending.delete(message.id)
+  message.error ? fail(new Error(message.error.message)) : done(message.result)
+})
+const send = (method, params = {}) => new Promise((done, fail) => {
+  const id = ++nextId
+  pending.set(id, { done, fail })
+  socket.send(JSON.stringify({ id, method, params }))
+})
+const evaluate = async (expression) =>
+  (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result.value
+
+try {
+  await send("Emulation.setDeviceMetricsOverride", { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false })
+  await send("Page.navigate", { url: deckUrl })
+  // Wait for the slides and fonts, then for the poll's live results (or demo data) to arrive.
+  for (let tries = 0; tries < 100 && !(await evaluate("document.querySelectorAll('#stage > section').length > 0")); tries++) await sleep(100)
+  await evaluate("document.fonts.ready.then(() => true)")
+  let connected = false
+  for (let tries = 0; tries < 50 && !connected; tries++) {
+    connected = await evaluate("document.getElementById('poll-status')?.hidden !== false")
+    if (!connected) await sleep(200)
+  }
+  if (!connected) console.warn(`Poll not connected (${await evaluate("document.getElementById('poll-status').textContent")}); poll slides will have no results.`)
+
+  const slideCount = await evaluate("document.querySelectorAll('#stage > section').length")
+  const images = []
+  for (let number = 1; number <= slideCount; number++) {
+    process.stdout.write(`\rSlide ${number} of ${slideCount}`)
+    if (number > 1) await evaluate("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))")
+    await sleep(2000) // entrance animations, bars growing and coins landing
+    images.push((await send("Page.captureScreenshot", { format: "png" })).data)
+  }
+  console.log()
+
+  // One image per page, printed at the slide's exact size (1920x1080 CSS px = 20in x 11.25in).
+  const pages = images.map((data) => `<img src="data:image/png;base64,${data}">`).join("")
+  await send("Page.navigate", { url: "about:blank" })
+  await evaluate(`document.write(${JSON.stringify(`<!doctype html><style>@page{size:1920px 1080px;margin:0}body{margin:0}img{display:block;width:1920px;height:1080px;break-after:page}</style>${pages}`)}); document.close(); Promise.all([...document.images].map((i) => i.decode())).then(() => true)`)
+  const pdf = await send("Page.printToPDF", { paperWidth: 20, paperHeight: 11.25, marginTop: 0, marginBottom: 0,
+    marginLeft: 0, marginRight: 0, printBackground: true, preferCSSPageSize: true })
+  await mkdir(dirname(output), { recursive: true })
+  await writeFile(output, Buffer.from(pdf.data, "base64"))
+  console.log(`Wrote ${output}`)
+} finally {
+  socket.close()
+  chrome.kill()
+  server.close()
+  await rm(profile, { recursive: true, force: true }).catch(() => {})
+}
